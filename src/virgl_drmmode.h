@@ -48,7 +48,7 @@ typedef struct {
     drmmode_ptr drmmode;
     drmModeCrtcPtr mode_crtc;
     int hw_id;
-    struct qxl_bo *cursor_bo;
+    struct virgl_bo *cursor_bo;
     void *cursor_ptr;
   //    struct radeon_bo *rotate_bo;
     unsigned rotate_fb_id;

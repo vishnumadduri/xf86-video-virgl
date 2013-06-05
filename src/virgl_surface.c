@@ -56,21 +56,8 @@ virgl_surface_prepare_access (virgl_surface_t  *surface,
 				    pixmap->drawable.height,
 				    -1, -1, -1, pixman_image_get_data(surface->host_image));
 
-	pixmap->devKind = abs(pixman_image_get_stride (surface->host_image));
+	pixmap->devKind = pixman_image_get_stride (surface->host_image);
 	return TRUE; 
-    }
-
-    if (!surface->dri2_3d_store && (surface->dri2_sw_rendered || surface->is_dri2_surf)) {
-	void *map = surface->virgl->bo_funcs->bo_map(surface->bo);
-
-	pScreen->ModifyPixmapHeader(
-				    pixmap,
-				    pixmap->drawable.width,
-				    pixmap->drawable.height,
-				    -1, -1, -1, map);
-
-	pixmap->devKind = abs(pixman_image_get_stride (surface->host_image));
-	return TRUE;
     }
 
     REGION_INIT (NULL, &new, (BoxPtr)NULL, 0);
@@ -163,11 +150,7 @@ virgl_surface_finish_access (virgl_surface_t *surface, PixmapPtr pixmap)
 	pScreen->ModifyPixmapHeader(pixmap, w, h, -1, -1, 0, NULL);
 	return;
     }
-    if (surface->dri2_sw_rendered) {
-	pScreen->ModifyPixmapHeader(pixmap, w, h, -1, -1, 0, NULL);
-	surface->virgl->bo_funcs->bo_unmap(surface->bo);
-	return;
-    }
+
     n_boxes = REGION_NUM_RECTS (&surface->access_region);
     boxes = REGION_RECTS (&surface->access_region);
 
@@ -247,60 +230,44 @@ Bool
 virgl_surface_prepare_copy (virgl_surface_t *dest,
 			  virgl_surface_t *source)
 {
-  if (dest->dri2_3d_store && source->dri2_3d_store && dest != source)
-    goto success;
-
-    if (dest->dri2_sw_rendered || source->dri2_sw_rendered || dest->dri2_3d_store || source->dri2_3d_store || dest->use_host_image || source->use_host_image)
-	return FALSE;
-    if (!REGION_NIL (&(dest->access_region))	||
-	!REGION_NIL (&(source->access_region)))
-    {
-	return FALSE;
+    if (dest->dri2_3d_store && source->dri2_3d_store && dest != source) {
+	dest->u.copy_src = source;
+	return TRUE;
     }
-  success:
-    dest->u.copy_src = source;
 
-    return TRUE;
+    return FALSE;
 }
-
 
 void
 virgl_surface_copy (virgl_surface_t *dest,
-		  int  src_x1, int src_y1,
-		  int  dest_x1, int dest_y1,
-		  int width, int height)
+		    int  src_x1, int src_y1,
+		    int  dest_x1, int dest_y1,
+		    int width, int height)
 {
     virgl_screen_t *virgl = dest->virgl;
     struct virgl_bo *drawable_bo;
+    struct drm_virgl_3d_box sbox, dbox;
+    int dheight = pixman_image_get_height(dest->host_image);
+    int sheight = pixman_image_get_height(dest->u.copy_src->host_image);
 
-#ifdef DEBUG_REGIONS
-    print_region (" copy src", &(dest->u.copy_src->access_region));
-    print_region (" copy dest", &(dest->access_region));
-#endif
+    sbox.x = src_x1;
+    sbox.y = src_y1;
+    sbox.z = 0;
+    sbox.w = width;
+    sbox.h = height;
+    sbox.d = 1;
 
-    if (dest->dri2_3d_store && dest->u.copy_src->dri2_3d_store) {
-      struct drm_virgl_3d_box sbox, dbox;
-      int dheight = pixman_image_get_height(dest->host_image);
-      int sheight = pixman_image_get_height(dest->u.copy_src->host_image);
-      sbox.x = src_x1;
-      sbox.y = src_y1;
-      sbox.z = 0;
-      sbox.w = width;
-      sbox.h = height;
-      sbox.d = 1;
-
-      dbox.x = dest_x1;
-      dbox.y = dest_y1 + height;
-      dbox.z = 0;
-      dbox.w = width;
-      dbox.h = -height;
-      dbox.d = 1;
-      graw_encode_blit(virgl->gr_enc,
-		       dest->drm_res_handle,
-		       dest->u.copy_src->drm_res_handle,
-		       &dbox,
-		       &sbox);
-    } 
+    dbox.x = dest_x1;
+    dbox.y = dest_y1;
+    dbox.z = 0;
+    dbox.w = width;
+    dbox.h = height;
+    dbox.d = 1;
+    graw_encode_blit(virgl->gr_enc,
+		     dest->drm_res_handle,
+		     dest->u.copy_src->drm_res_handle,
+		     &dbox,
+		     &sbox);
 
 }
 
@@ -363,34 +330,6 @@ virgl_get_formats (int bpp, pixman_format_code_t *pformat)
     }
 }
 
-void
-virgl_flip_surface(struct virgl_surface_t *surf)
-{
-    int width, height;
-    pixman_image_t *temp;
-    pixman_format_code_t format;
-
-    width = pixman_image_get_width (surf->host_image);
-    height = pixman_image_get_height (surf->host_image);
-    format = pixman_image_get_format (surf->host_image);
-    /* flip this surface up the right way */
-    virgl_download_box(surf, 0, 0, width, height);
-
-    //    temp = pixman_image_create_bits (format, width, height,
-    //				     (uint32_t *)dev_addr, abs(pixman_image_get_stride(surf->host_image)));
-
-
-    pixman_image_composite (PIXMAN_OP_SRC,
-			    surf->host_image,
-                            NULL,
-			    temp,
-			    0, 0, 0, 0, 0, 0,
-			    width, height);
-    pixman_image_unref(temp);    
-    surf->virgl->bo_funcs->bo_unmap(surf->bo);
-
-}
-
 virgl_surface_t *
 virgl_create_primary (virgl_screen_t *virgl, int bpp)
 {
@@ -399,7 +338,7 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
     uint8_t *dev_addr;
     pixman_image_t *dev_image, *host_image;
     virgl_surface_t *surface;
-    struct virgl_bo *bo;
+    struct virgl_bo *bo = NULL;
     int res_handle;
 
     if (bpp == 16)
@@ -423,12 +362,8 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
 					   pScrn->virtualX, pScrn->virtualY,
 					   NULL, pScrn->virtualX * 4);
     surface = malloc (sizeof *surface);
-    surface->id = 0;
     surface->host_image = host_image;
     surface->virgl = virgl;
-    surface->bo = bo;
-    surface->is_dri2_surf = FALSE;
-    surface->dri2_sw_rendered = FALSE;
     surface->dri2_3d_store = TRUE;
     surface->use_host_image = FALSE;
     surface->drm_res_handle = res_handle;

@@ -151,7 +151,6 @@ drmmode_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
                                    pScrn->depth, pScrn->bitsPerPixel,
 				   pitch,
 				   virgl->primary->drm_res_handle,
-				   //				   virgl_kms_bo_get_handle(virgl->primary->bo),
                                    &drmmode->fb_id);
                 if (ret < 0) {
                         ErrorF("failed to add fb\n");
@@ -783,28 +782,20 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
                    "Allocate new frame buffer %dx%d stride\n",
                    width, height);
 
-	front_bo = virgl->primary->bo;
-
 	pitch = width * cpp;
 	old_width = scrn->virtualX;
 	old_height = scrn->virtualY;
 	old_pitch = scrn->displayWidth;
 	old_fb_id = drmmode->fb_id;
-	old_front = front_bo;
 
 	scrn->virtualX = width;
 	scrn->virtualY = height;
 	scrn->displayWidth = pitch / cpp;
 
-	virgl->primary->bo = virgl->bo_funcs->create_primary(virgl, width, height, pitch, 0);
-	if (!virgl->primary->bo)
-		goto fail;
-
 	ret = drmModeAddFB(drmmode->fd,
 			   width, height,
 			   scrn->depth, scrn->bitsPerPixel,
 			   pitch,
-			   //			   virgl_kms_bo_get_handle(virgl->primary->bo),
 			   virgl->primary->drm_res_handle,
 			   &drmmode->fb_id);
 	if (ret)
@@ -818,21 +809,6 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
 				       crtc->x, crtc->y);
 	}
 
-	{
-		void *dev_ptr = virgl->bo_funcs->bo_map(virgl->primary->bo);
-		uint32_t *dev_addr;
-		int format = scrn->bitsPerPixel == 16 ? PIXMAN_x1r5g5b5 : PIXMAN_x8r8g8b8;
-		dev_addr
-			= (uint32_t *)((uint8_t *)dev_ptr + pitch * (height - 1));
-		pixman_image_unref (virgl->primary->host_image);
-
-#if 0
-		virgl->primary->dev_image = pixman_image_create_bits (format,
-								    width,
-								    height,
-								    (uint32_t *)dev_addr, pitch);
-#endif
-	}
 		
 	/* fixup the surfaces */
 
@@ -843,7 +819,6 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
 
 	return TRUE;
 fail:
-	virgl->primary->bo = old_front;
 	scrn->virtualX = old_width;
 	scrn->virtualY = old_height;
 	scrn->displayWidth = old_pitch;

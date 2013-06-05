@@ -91,8 +91,7 @@ virgl_dri2_create_buffer2(ScreenPtr screen, DrawablePtr draw, unsigned int attac
 	/* get name */
 	surf = get_surface(ppix);
 	if (ppix->usage_hint == CREATE_PIXMAP_USAGE_BACKING_PIXMAP) {
-	    if (!surf->dri2_sw_rendered && !surf->dri2_3d_store) {
-	      //		virgl_flip_surface(surf);
+	    if (!surf->dri2_3d_store) {
 		virgl_kms_3d_resource_migrate(surf);
 		virgl_kms_transfer_block(surf, 0, 0, surf->pixmap->drawable.width, surf->pixmap->drawable.height);
 	    }
@@ -127,16 +126,7 @@ virgl_dri2_create_buffer2(ScreenPtr screen, DrawablePtr draw, unsigned int attac
 	if (!surf)
 	    goto fail;
 
-	if (!surf->dri2_3d_store) {
-	  if (surf->bo) {
-	    ret = virgl_kms_get_kernel_name(surf->bo, &qbuf->base.name);
-	    if (ret)
-	      goto fail;
-	  } else
-	    goto fail;
-	} else {
-	  qbuf->base.name = surf->drm_res_handle | (1 << 30);
-	}
+	qbuf->base.name = surf->drm_res_handle;
     }
 
     ErrorF("create buffer2 called %d\n", attachment);

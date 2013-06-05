@@ -63,21 +63,17 @@ typedef struct _virgl_screen_t virgl_screen_t;
 struct virgl_surface_t
 {
     virgl_screen_t *virgl;
-    uint32_t	        id;
 
     pixman_image_t *	host_image;
 
     uxa_access_t	access_type;
     RegionRec		access_region;
-    Bool is_dri2_surf;
-    struct virgl_bo   *bo;
 
     int			ref_count;
 
     PixmapPtr		pixmap;
 
     Bool use_host_image;
-    Bool dri2_sw_rendered;
     Bool dri2_3d_store;
     int drm_res_handle;
 

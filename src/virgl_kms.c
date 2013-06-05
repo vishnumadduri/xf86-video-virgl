@@ -589,7 +589,7 @@ static void virgl_bo_decref(virgl_screen_t *virgl, struct virgl_bo *_bo)
     ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_GEM_CLOSE, &args);
     if (ret) {
         xf86DrvMsg(virgl->pScrn->scrnIndex, X_ERROR,
-                   "error doing VIRGL_DECREF\n");
+                   "error doing VIRGL_DECREF %d %d %d\n", ret, errno, bo->handle);
     }
  out:
     free(bo);
@@ -624,30 +624,6 @@ static struct virgl_bo *virgl_bo_create_primary(virgl_screen_t *virgl, uint32_t 
     struct virgl_kms_bo *bo;
     int ret;
 
-    bo = calloc(1, sizeof(struct virgl_kms_bo));
-    if (!bo)
-	return NULL;
-
-#if 0
-    struct drm_virgl_alloc_surf param;
-
-    param.format = SPICE_SURFACE_FMT_32_xRGB;
-    param.width = width;
-    param.height = height;
-    param.stride = stride;
-    param.handle = 0;
-    ret = drmIoctl(virgl->drm_fd,
-		   DRM_IOCTL_VIRGL_ALLOC_SURF, &param);
-    if (ret)
-	return NULL;
-    bo->name = "surface memory";
-    bo->size = stride * param.height;
-    bo->type = VIRGL_BO_SURF_PRIMARY;
-    bo->handle = 0;
-    bo->virgl = virgl;
-    bo->refcnt = 1;
-#endif
-
     virgl->primary_bo = (struct virgl_bo *)bo;
     return (struct virgl_bo *)bo;
 }
@@ -667,7 +643,7 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
 {
     virgl_surface_t *surface;
     int stride;
-    struct virgl_kms_bo *bo;
+    struct virgl_kms_bo *bo = NULL;
     pixman_format_code_t pformat;
     int format;
     void *dev_ptr;
@@ -698,50 +674,18 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
     stride = width * 32 / 8;
     stride = (stride + 3) & ~3;
 
-    bo = calloc(1, sizeof(struct virgl_kms_bo));
-    if (!bo)
-	return NULL;
-#if 0
-    param.format = format;
-    param.width = width;
-    param.height = height;
-    if (usage_hint & VIRGL_CREATE_PIXMAP_DRI2)
-        param.stride = stride;
-    else
-        param.stride = -stride;
-    param.handle = 0;
-    ret = drmIoctl(virgl->drm_fd,
-		   DRM_IOCTL_VIRGL_ALLOC_SURF, &param);
-    if (ret)
-	return NULL;
-
-    bo->name = "surface memory";
-    bo->size = stride * height + stride;
-    bo->type = VIRGL_BO_SURF;
-    bo->handle = param.handle;
-    bo->virgl = virgl;
-    bo->refcnt = 1;
-
-#endif
-
     /* then fill out the driver surface */
     surface = calloc(1, sizeof *surface);
-    surface->bo = (struct virgl_bo *)bo;
     surface->virgl = virgl;
 
-    surface->dri2_sw_rendered = TRUE;
     if (usage_hint & VIRGL_CREATE_PIXMAP_DRI2) {
         handle = virgl_bo_create_primary_resource(virgl, width, height, stride,
 						  format);
 
-        surface->is_dri2_surf = TRUE;
 	surface->drm_res_handle = handle;
 	surface->dri2_3d_store = TRUE;
 	surface->use_host_image = FALSE;
-
-	surface->id = handle;
     } else {
-        surface->is_dri2_surf = FALSE;
 	surface->use_host_image = TRUE;
 	surface->drm_res_handle = 0;
 	surface->dri2_3d_store = FALSE;
@@ -750,7 +694,6 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
     surface->host_image = pixman_image_create_bits (
 	pformat, width, height, NULL, stride);
     REGION_INIT (NULL, &(surface->access_region), (BoxPtr)NULL, 0);
-    //    virgl->bo_funcs->bo_unmap(surface->bo);
     surface->access_type = UXA_ACCESS_RO;
 
     return surface;
@@ -763,8 +706,6 @@ static void virgl_kms_surface_destroy(virgl_surface_t *surf)
     if (surf->host_image)
 	pixman_image_unref (surf->host_image);
 
-    if (surf->bo)
-      virgl->bo_funcs->bo_decref(virgl, surf->bo);
     free(surf);
 }
 
@@ -964,7 +905,6 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
 	   mptr += width * 4;
        }
    }
-
 
    ret = virgl_3d_transfer_put(fd, surf->drm_res_handle, bo_handle,
 			     &transfer_box, 0, 0);
