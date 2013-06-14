@@ -258,10 +258,10 @@ virgl_surface_copy (virgl_surface_t *dest,
     sbox.d = 1;
 
     dbox.x = dest_x1;
-    dbox.y = dest_y1;
+    dbox.y = dest_y1 + height;
     dbox.z = 0;
     dbox.w = width;
-    dbox.h = height;
+    dbox.h = -height;
     dbox.d = 1;
     graw_encode_blit(virgl->gr_enc,
 		     dest->drm_res_handle,
