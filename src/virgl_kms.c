@@ -816,7 +816,7 @@ static int virgl_3d_transfer_get(int fd, uint32_t res_handle, uint32_t bo_handle
   getcmd.bo_handle = bo_handle;
   getcmd.level = level;
   getcmd.box = *box;
-
+  getcmd.dst_offset = 0;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_GET, &getcmd);
   return ret;
 }
