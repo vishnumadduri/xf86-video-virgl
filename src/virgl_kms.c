@@ -683,12 +683,8 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
 						  format);
 
 	surface->drm_res_handle = handle;
-	surface->dri2_3d_store = TRUE;
-	surface->use_host_image = FALSE;
     } else {
-	surface->use_host_image = TRUE;
 	surface->drm_res_handle = 0;
-	surface->dri2_3d_store = FALSE;
     }
 
     surface->host_image = pixman_image_create_bits (

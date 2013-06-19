@@ -48,7 +48,7 @@ virgl_surface_prepare_access (virgl_surface_t  *surface,
     if (!pScrn->vtSema)
         return FALSE;
 
-    if (surface->use_host_image && !surface->dri2_3d_store) {
+    if (!surface->drm_res_handle) {
 
 	pScreen->ModifyPixmapHeader(
 				    pixmap,
@@ -146,7 +146,7 @@ virgl_surface_finish_access (virgl_surface_t *surface, PixmapPtr pixmap)
     int n_boxes;
     BoxPtr boxes;
 
-    if (surface->use_host_image) {
+    if (!surface->drm_res_handle) {
 	pScreen->ModifyPixmapHeader(pixmap, w, h, -1, -1, 0, NULL);
 	return;
     }
@@ -228,9 +228,9 @@ virgl_surface_solid (virgl_surface_t *destination,
 /* copy */
 Bool
 virgl_surface_prepare_copy (virgl_surface_t *dest,
-			  virgl_surface_t *source)
+			    virgl_surface_t *source)
 {
-    if (dest->dri2_3d_store && source->dri2_3d_store && dest != source) {
+    if (dest->drm_res_handle && source->drm_res_handle && dest != source) {
 	dest->u.copy_src = source;
 	return TRUE;
     }
@@ -364,8 +364,6 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
     surface = malloc (sizeof *surface);
     surface->host_image = host_image;
     surface->virgl = virgl;
-    surface->dri2_3d_store = TRUE;
-    surface->use_host_image = FALSE;
     surface->drm_res_handle = res_handle;
     REGION_INIT (NULL, &(surface->access_region), (BoxPtr)NULL, 0);
     surface->access_type = UXA_ACCESS_RO;

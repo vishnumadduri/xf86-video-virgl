@@ -91,12 +91,11 @@ virgl_dri2_create_buffer2(ScreenPtr screen, DrawablePtr draw, unsigned int attac
 	/* get name */
 	surf = get_surface(ppix);
 	if (ppix->usage_hint == CREATE_PIXMAP_USAGE_BACKING_PIXMAP) {
-	    if (!surf->dri2_3d_store) {
+	    if (!surf->drm_res_handle) {
 		virgl_kms_3d_resource_migrate(surf);
 		virgl_kms_transfer_block(surf, 0, 0, surf->pixmap->drawable.width, surf->pixmap->drawable.height);
+		ErrorF("migrated pixmap %p %p\n", ppix, surf);
 	    }
-	    surf->dri2_3d_store = TRUE;
-	    ErrorF("migrated pixmap %p %p\n", ppix, surf);
 	}
     } else {
 	int bpp;

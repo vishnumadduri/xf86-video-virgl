@@ -73,8 +73,6 @@ struct virgl_surface_t
 
     PixmapPtr		pixmap;
 
-    Bool use_host_image;
-    Bool dri2_3d_store;
     int drm_res_handle;
 
     union
