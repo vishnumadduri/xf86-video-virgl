@@ -122,7 +122,11 @@ static void virglBlockHandler(BLOCKHANDLER_ARGS_DECL)
     graw_flush_eq(virgl->gr_enc, NULL);
 
     dispatch_dirty(pScreen);
+}
 
+void virgl_flush(virgl_screen_t *virgl)
+{
+    graw_flush_eq(virgl->gr_enc, NULL);
 }
 
 static Bool

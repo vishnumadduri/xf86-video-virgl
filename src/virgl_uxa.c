@@ -148,6 +148,7 @@ virgl_copy (PixmapPtr dest,
 static void
 virgl_done_copy (PixmapPtr dest)
 {
+    virgl_surface_done_copy(get_surface(dest));
 }
 
 /*

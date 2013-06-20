@@ -230,6 +230,7 @@ void		    virgl_surface_copy	     (virgl_surface_t *dest,
 					      int  src_x1, int src_y1,
 					      int  dest_x1, int dest_y1,
 					      int width, int height);
+void		    virgl_surface_done_copy (virgl_surface_t *dest);
 Bool		    virgl_surface_put_image    (virgl_surface_t *dest,
 					      int x, int y, int width, int height,
 					      const char *src, int src_pitch);
@@ -317,6 +318,7 @@ void *              virgl_surface_get_host_bits(virgl_surface_t *surface);
 
 virgl_surface_t *virgl_create_primary (virgl_screen_t *virgl, int bpp);
 void virgl_get_formats (int bpp, pixman_format_code_t *pformat);
+void virgl_flush(virgl_screen_t *virgl);
 #define VIRGL_CREATE_PIXMAP_DRI2 0x10000000
 
 #endif // VIRGL_H

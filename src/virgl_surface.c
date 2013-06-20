@@ -268,7 +268,12 @@ virgl_surface_copy (virgl_surface_t *dest,
 		     dest->u.copy_src->drm_res_handle,
 		     &dbox,
 		     &sbox);
+}
 
+void
+virgl_surface_done_copy (virgl_surface_t *dest)
+{
+    virgl_flush(dest->virgl);
 }
 
 /* composite */
