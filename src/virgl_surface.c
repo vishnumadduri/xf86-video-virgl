@@ -112,8 +112,6 @@ real_upload_box (virgl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
     virgl_kms_transfer_block(surface, x1, y1, x2, y2); 
 }
-#define TILE_WIDTH 512
-#define TILE_HEIGHT 512
 
 void
 virgl_upload_box (virgl_surface_t *surface, int x1, int y1, int x2, int y2)
