@@ -118,23 +118,7 @@ real_upload_box (virgl_surface_t *surface, int x1, int y1, int x2, int y2)
 void
 virgl_upload_box (virgl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
-    int tile_x1, tile_y1;
-
-    for (tile_y1 = y1; tile_y1 < y2; tile_y1 += TILE_HEIGHT)
-    {
-	for (tile_x1 = x1; tile_x1 < x2; tile_x1 += TILE_WIDTH)
-	{
-	    int tile_x2 = tile_x1 + TILE_WIDTH;
-	    int tile_y2 = tile_y1 + TILE_HEIGHT;
-
-	    if (tile_x2 > x2)
-		tile_x2 = x2;
-	    if (tile_y2 > y2)
-		tile_y2 = y2;
-
-	    real_upload_box (surface, tile_x1, tile_y1, tile_x2, tile_y2);
-	}
-    }
+    virgl_kms_transfer_block(surface, x1, y1, x2, y2); 
 }
 
 void
