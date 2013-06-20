@@ -68,9 +68,6 @@ struct virgl_surface_t
 
     uxa_access_t	access_type;
     RegionRec		access_region;
-
-    int			ref_count;
-
     PixmapPtr		pixmap;
 
     int drm_res_handle;
