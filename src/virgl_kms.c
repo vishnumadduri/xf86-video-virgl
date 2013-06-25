@@ -909,7 +909,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    }
 
    ret = virgl_3d_transfer_put(fd, surf->drm_res_handle, bo_handle,
-			       &transfer_box, 0, 0, 1);
+			       &transfer_box, 0, 0, 0);
 
    munmap(ptr, size);
    gem_close(fd, bo_handle);
@@ -949,7 +949,7 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
       fprintf(stderr,"failed to create bo1 %d\n", ret);
       return;
    }
-   ret = virgl_3d_transfer_get(fd, surf->drm_res_handle, bo_handle, &box, 0, 1);
+   ret = virgl_3d_transfer_get(fd, surf->drm_res_handle, bo_handle, &box, 0, 0);
 
    ret = virgl_3d_wait(fd, bo_handle);
    

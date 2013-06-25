@@ -233,14 +233,14 @@ virgl_surface_copy (virgl_surface_t *dest,
     int sheight = pixman_image_get_height(dest->u.copy_src->host_image);
 
     sbox.x = src_x1;
-    sbox.y = sheight - src_y1 - height;
+    sbox.y = src_y1;
     sbox.z = 0;
     sbox.w = width;
     sbox.h = height;
     sbox.d = 1;
 
     dbox.x = dest_x1;
-    dbox.y = dheight - dest_y1 - height;
+    dbox.y = dest_y1;
     dbox.z = 0;
     dbox.w = width;
     dbox.h = height;
