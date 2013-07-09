@@ -605,7 +605,7 @@ int virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint
     struct drm_virgl_3d_resource_create res;
     int ret;
     res.target = 2;
-    res.format = 2;
+    res.format = 1;
     res.bind = (1 << 1);
     res.width = width;
     res.height = height;
