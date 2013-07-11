@@ -261,7 +261,7 @@ drmmode_set_cursor_position (xf86CrtcPtr crtc, int x, int y)
 	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
 	drmmode_ptr drmmode = drmmode_crtc->drmmode;
 
-	//	drmModeMoveCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, x, y);
+	drmModeMoveCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, x, y);
 }
 
 static void
@@ -269,9 +269,9 @@ drmmode_show_cursor (xf86CrtcPtr crtc)
 {
 	drmmode_crtc_private_ptr drmmode_crtc = crtc->driver_private;
 	drmmode_ptr drmmode = drmmode_crtc->drmmode;
-	//	uint32_t handle = virgl_kms_bo_get_handle(drmmode_crtc->cursor_bo);
+	uint32_t handle = virgl_kms_bo_get_handle(drmmode_crtc->cursor_bo);
 
-	//	drmModeSetCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, handle, 64, 64);
+	drmModeSetCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, handle, 64, 64);
 }
 
 static void
@@ -300,7 +300,7 @@ drmmode_hide_cursor (xf86CrtcPtr crtc)
 	drmmode_ptr drmmode = drmmode_crtc->drmmode;
 	int ret;
 	
-	//	drmModeSetCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, 0, 64, 64);
+	drmModeSetCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, 0, 64, 64);
 }
 
 static void
@@ -352,6 +352,11 @@ drmmode_crtc_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 		}
 
 		drmmode_crtc->cursor_ptr = virgl->bo_funcs->bo_map(drmmode_crtc->cursor_bo);
+
+		/* create a resource for cursor */
+		drmmode_crtc->cursor_res_handle = virgl_bo_create_argb_cursor_resource(virgl, 64, 64);
+		virgl_link_cursor(virgl, drmmode_crtc->cursor_bo, drmmode_crtc->cursor_res_handle);
+
 	}
 	
 	return;

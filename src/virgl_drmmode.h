@@ -50,6 +50,7 @@ typedef struct {
     int hw_id;
     struct virgl_bo *cursor_bo;
     void *cursor_ptr;
+  uint32_t cursor_res_handle;
   //    struct radeon_bo *rotate_bo;
     unsigned rotate_fb_id;
     int dpms_mode;

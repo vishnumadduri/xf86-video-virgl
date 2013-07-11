@@ -421,13 +421,14 @@ Bool virgl_screen_init_kms(SCREEN_INIT_ARGS_DECL)
 
     miDCInitialize (pScreen, xf86GetPointerScreenFuncs());
 
+#if 1
     xf86_cursors_init (pScreen, 64, 64,
 		       (HARDWARE_CURSOR_TRUECOLOR_AT_8BPP |
 			HARDWARE_CURSOR_AND_SOURCE_WITH_MASK |
 			HARDWARE_CURSOR_SOURCE_MASK_INTERLEAVE_1 |
 			HARDWARE_CURSOR_UPDATE_UNHIDDEN |
 			HARDWARE_CURSOR_ARGB));
-
+#endif
     if (!miCreateDefColormap (pScreen))
         goto out;
 
@@ -622,6 +623,45 @@ int virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint
     return res.res_handle;
 }
 
+int virgl_link_cursor(virgl_screen_t *virgl,
+		      struct virgl_bo *_bo,
+		      uint32_t res_handle)
+{
+    struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
+    struct drm_virgl_cursor_link link;
+    int ret;
+
+    link.bo_handle = bo->handle;
+    link.res_handle = res_handle;
+
+    ret = drmIoctl(virgl->drm_fd,
+		   DRM_IOCTL_VIRGL_CURSOR_LINK, &link);
+    return ret;
+}
+
+int virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
+					 uint32_t width, uint32_t height) 
+{
+    /* create a resource */
+    struct drm_virgl_3d_resource_create res;
+    int ret;
+    res.target = 2;
+    res.format = 1;
+    res.bind = (1 << 16) /* pipe bind cursor */;
+    res.width = width;
+    res.height = height;
+    res.depth = 1;
+    res.array_size = 0;
+    res.last_level = 0;
+    res.nr_samples = 0;
+    res.res_handle = 0;
+    ret = drmIoctl(virgl->drm_fd,
+		   DRM_IOCTL_VIRGL_RESOURCE_CREATE, &res);
+    if (ret)
+	return 0;
+
+    return res.res_handle;
+}
 
 static struct virgl_bo *virgl_bo_create_primary(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format)
 {

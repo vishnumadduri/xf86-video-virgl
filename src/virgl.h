@@ -321,4 +321,9 @@ void virgl_get_formats (int bpp, pixman_format_code_t *pformat);
 void virgl_flush(virgl_screen_t *virgl);
 #define VIRGL_CREATE_PIXMAP_DRI2 0x10000000
 
+int virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
+					 uint32_t width, uint32_t height);
+int virgl_link_cursor(virgl_screen_t *virgl,
+		      struct virgl_bo *_bo,
+		      uint32_t res_handle);
 #endif // VIRGL_H
