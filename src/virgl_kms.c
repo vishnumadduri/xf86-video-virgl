@@ -1219,7 +1219,6 @@ virgl_init_scrn (ScrnInfoPtr pScrn)
     pScrn->EnterVT          = virgl_enter_vt_kms;
     pScrn->LeaveVT          = virgl_leave_vt_kms;
 
-    //    pScrn->SwitchMode       = qxl_switch_mode;
     pScrn->ValidMode        = NULL;
 }
 
