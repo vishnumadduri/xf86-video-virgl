@@ -831,7 +831,7 @@ static int virgl_3d_alloc(int fd, int size, uint32_t *handle)
 static int virgl_3d_transfer_put(int fd, uint32_t res_handle, uint32_t bo_handle,
 			       struct drm_virgl_3d_box *transfer_box,
 			       uint32_t src_stride,
-				 uint32_t level, uint32_t invert)
+				 uint32_t level)
 {
   struct drm_virgl_3d_transfer_put putcmd;
   int ret;
@@ -842,13 +842,12 @@ static int virgl_3d_transfer_put(int fd, uint32_t res_handle, uint32_t bo_handle
   putcmd.dst_level = level;
   putcmd.src_stride = src_stride;
   putcmd.src_offset = 0;
-  putcmd.transfer_flags = invert ? (1 << 0) : 0;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_PUT, &putcmd);
   return ret;
 }
 
 static int virgl_3d_transfer_get(int fd, uint32_t res_handle, uint32_t bo_handle,
-				 struct drm_virgl_3d_box *box, uint32_t level, uint32_t invert)
+				 struct drm_virgl_3d_box *box, uint32_t level)
 {
   struct drm_virgl_3d_transfer_get getcmd;
   int ret;
@@ -858,7 +857,6 @@ static int virgl_3d_transfer_get(int fd, uint32_t res_handle, uint32_t bo_handle
   getcmd.level = level;
   getcmd.box = *box;
   getcmd.dst_offset = 0;
-  getcmd.transfer_flags = invert ? (1 << 0) : 0;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_GET, &getcmd);
   return ret;
 }
@@ -949,7 +947,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    }
 
    ret = virgl_3d_transfer_put(fd, surf->drm_res_handle, bo_handle,
-			       &transfer_box, 0, 0, 0);
+			       &transfer_box, 0, 0);
 
    munmap(ptr, size);
    gem_close(fd, bo_handle);
@@ -989,7 +987,7 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
       fprintf(stderr,"failed to create bo1 %d\n", ret);
       return;
    }
-   ret = virgl_3d_transfer_get(fd, surf->drm_res_handle, bo_handle, &box, 0, 0);
+   ret = virgl_3d_transfer_get(fd, surf->drm_res_handle, bo_handle, &box, 0);
 
    ret = virgl_3d_wait(fd, bo_handle);
    
