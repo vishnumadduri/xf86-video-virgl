@@ -48,8 +48,7 @@ virgl_surface_prepare_access (virgl_surface_t  *surface,
     if (!pScrn->vtSema)
         return FALSE;
 
-    if (!surface->drm_res_handle) {
-
+    if (!surface->bo) {
 	pScreen->ModifyPixmapHeader(
 				    pixmap,
 				    pixmap->drawable.width,
@@ -128,7 +127,7 @@ virgl_surface_finish_access (virgl_surface_t *surface, PixmapPtr pixmap)
     int n_boxes;
     BoxPtr boxes;
 
-    if (!surface->drm_res_handle) {
+    if (!surface->bo) {
 	pScreen->ModifyPixmapHeader(pixmap, w, h, -1, -1, 0, NULL);
 	return;
     }
@@ -212,7 +211,7 @@ Bool
 virgl_surface_prepare_copy (virgl_surface_t *dest,
 			    virgl_surface_t *source)
 {
-    if (dest->drm_res_handle && source->drm_res_handle && dest != source) {
+    if (dest->bo && source->bo && dest != source) {
 	dest->u.copy_src = source;
 	return TRUE;
     }
@@ -246,8 +245,8 @@ virgl_surface_copy (virgl_surface_t *dest,
     dbox.h = height;
     dbox.d = 1;
     graw_encode_blit(virgl->gr_enc,
-		     dest->drm_res_handle,
-		     dest->u.copy_src->drm_res_handle,
+		     virgl_kms_bo_get_handle(dest->bo),
+		     virgl_kms_bo_get_handle(dest->u.copy_src->bo),
 		     &dbox,
 		     &sbox);
 }
@@ -326,7 +325,6 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
     pixman_image_t *dev_image, *host_image;
     virgl_surface_t *surface;
     struct virgl_bo *bo = NULL;
-    int res_handle;
 
     if (bpp == 16)
     {
@@ -343,15 +341,17 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
 	return NULL;
     }
 
-    res_handle = virgl_bo_create_primary_resource(virgl, pScrn->virtualX, pScrn->virtualY, pScrn->virtualX * 4, bpp);
 
+    bo = virgl_bo_create_primary_resource(virgl, pScrn->virtualX, pScrn->virtualY, pScrn->virtualX * 4, bpp);
+
+    dev_addr = virgl->bo_funcs->bo_map(bo);
     host_image = pixman_image_create_bits (format, 
 					   pScrn->virtualX, pScrn->virtualY,
-					   NULL, pScrn->virtualX * 4);
+					   dev_addr, pScrn->virtualX * 4);
     surface = malloc (sizeof *surface);
     surface->host_image = host_image;
     surface->virgl = virgl;
-    surface->drm_res_handle = res_handle;
+    surface->bo = bo;
     REGION_INIT (NULL, &(surface->access_region), (BoxPtr)NULL, 0);
     surface->access_type = UXA_ACCESS_RO;
     

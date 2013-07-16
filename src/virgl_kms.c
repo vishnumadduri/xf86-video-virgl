@@ -454,16 +454,9 @@ Bool virgl_screen_init_kms(SCREEN_INIT_ARGS_DECL)
 
 }
 
-#define VIRGL_BO_DATA 1
-#define VIRGL_BO_SURF 2
-#define VIRGL_BO_CMD 4
-#define VIRGL_BO_SURF_PRIMARY 8
-
 struct virgl_kms_bo {
     uint32_t handle;
-    const char *name;
     uint32_t size;
-    int type;
     struct xorg_list bos;
     void *mapping;
     virgl_screen_t *virgl;
@@ -471,57 +464,39 @@ struct virgl_kms_bo {
     uint32_t kname;
 };
 
-static struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
-				   unsigned long size, const char *name)
+struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
+				uint32_t target, uint32_t format, uint32_t bind,
+				uint32_t width, uint32_t height)
 {
+    struct drm_virgl_3d_resource_create create;
     struct virgl_kms_bo *bo;
-    struct drm_virgl_alloc alloc;
     int ret;
-
+    uint32_t size;
+    size = width * height * 4; // TODO
     bo = calloc(1, sizeof(struct virgl_kms_bo));
     if (!bo)
 	return NULL;
 
-    alloc.size = size;
-    alloc.handle = 0;
+    memset(&create, 0, sizeof(create));
+    create.target = target;
+    create.format = format;
+    create.bind = bind;
+    create.width = width;
+    create.height = height;
+    create.depth = 1;
+    create.size = size;
 
-    ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRGL_ALLOC, &alloc);
+    ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRGL_RESOURCE_CREATE, &create);
     if (ret) {
         xf86DrvMsg(virgl->pScrn->scrnIndex, X_ERROR,
-                   "error doing VIRGL_ALLOC\n");
+                   "error doing VIRGL resource create\n");
 	free(bo);
         return NULL; // an invalid handle
     }
 
  out:
-    bo->name = name;
     bo->size = size;
-    bo->type = VIRGL_BO_DATA;
-    bo->handle = alloc.handle;
-    bo->virgl = virgl;
-    bo->refcnt = 1;
-    return (struct virgl_bo *)bo;
-}
-
-static struct virgl_bo *virgl_cmd_alloc(virgl_screen_t *virgl,
-				    unsigned long size, const char *name)
-{
-    struct virgl_kms_bo *bo;
-    struct drm_virgl_alloc alloc;
-    int ret;
-
-    bo = calloc(1, sizeof(struct virgl_kms_bo));
-    if (!bo)
-	return NULL;
-    bo->mapping = malloc(size);
-    if (!bo->mapping) {
-	free(bo);
-	return NULL;
-    }
-    bo->name = name;
-    bo->size = size;
-    bo->type = VIRGL_BO_CMD;
-    bo->handle = 0;
+    bo->handle = create.res_handle;
     bo->virgl = virgl;
     bo->refcnt = 1;
     return (struct virgl_bo *)bo;
@@ -583,11 +558,7 @@ static void virgl_bo_decref(virgl_screen_t *virgl, struct virgl_bo *_bo)
     if (bo->refcnt > 0)
 	return;
 
-    if (bo->type == VIRGL_BO_CMD) {
-	free(bo->mapping);
-	goto out;
-    } else if (bo->mapping)
-	munmap(bo->mapping, bo->size);
+    munmap(bo->mapping, bo->size);
 	
     /* just close the handle */
     args.handle = bo->handle;
@@ -600,67 +571,26 @@ static void virgl_bo_decref(virgl_screen_t *virgl, struct virgl_bo *_bo)
     free(bo);
 }
 
-int virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format)
+struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format)
 {
     /* create a resource */
-    struct drm_virgl_3d_resource_create res;
-    int ret;
-    res.target = 2;
-    res.format = 1;
-    res.bind = (1 << 1);
-    res.width = width;
-    res.height = height;
-    res.depth = 1;
-    res.array_size = 0;
-    res.last_level = 0;
-    res.nr_samples = 0;
-    res.res_handle = 0;
-    ret = drmIoctl(virgl->drm_fd,
-		   DRM_IOCTL_VIRGL_RESOURCE_CREATE, &res);
-    if (ret)
-	return 0;
+    struct virgl_bo *bo;
 
-    return res.res_handle;
+    bo = virgl_bo_alloc(virgl, 2, 1, (1 << 1), width, height);
+    return bo;
 }
 
-int virgl_link_cursor(virgl_screen_t *virgl,
-		      struct virgl_bo *_bo,
-		      uint32_t res_handle)
+struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
+						      uint32_t width, uint32_t height) 
 {
-    struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
-    struct drm_virgl_cursor_link link;
-    int ret;
-
-    link.bo_handle = bo->handle;
-    link.res_handle = res_handle;
-
-    ret = drmIoctl(virgl->drm_fd,
-		   DRM_IOCTL_VIRGL_CURSOR_LINK, &link);
-    return ret;
-}
-
-int virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
-					 uint32_t width, uint32_t height) 
-{
-    /* create a resource */
+    struct virgl_bo *bo;
     struct drm_virgl_3d_resource_create res;
     int ret;
-    res.target = 2;
-    res.format = 1;
-    res.bind = (1 << 16) /* pipe bind cursor */;
-    res.width = width;
-    res.height = height;
-    res.depth = 1;
-    res.array_size = 0;
-    res.last_level = 0;
-    res.nr_samples = 0;
-    res.res_handle = 0;
-    ret = drmIoctl(virgl->drm_fd,
-		   DRM_IOCTL_VIRGL_RESOURCE_CREATE, &res);
-    if (ret)
-	return 0;
 
-    return res.res_handle;
+    bo = virgl_bo_alloc(virgl, 2, 1, (1 << 16), width, height);
+    if (!bo)
+	return NULL;
+    return bo;
 }
 
 static struct virgl_bo *virgl_bo_create_primary(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format)
@@ -723,12 +653,11 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
     surface->virgl = virgl;
 
     if (usage_hint & VIRGL_CREATE_PIXMAP_DRI2) {
-        handle = virgl_bo_create_primary_resource(virgl, width, height, stride,
+        surface->bo = virgl_bo_create_primary_resource(virgl, width, height, stride,
 						  format);
 
-	surface->drm_res_handle = handle;
     } else {
-	surface->drm_res_handle = 0;
+	surface->bo = NULL;
     }
 
     surface->host_image = pixman_image_create_bits (
@@ -750,8 +679,6 @@ static void virgl_kms_surface_destroy(virgl_surface_t *surf)
 }
 
 struct virgl_bo_funcs virgl_kms_bo_funcs = {
-    virgl_bo_alloc,
-    virgl_cmd_alloc,
     virgl_bo_map,
     virgl_bo_unmap,
     virgl_bo_decref,
@@ -797,47 +724,20 @@ int virgl_kms_get_kernel_name(struct virgl_bo *_bo, uint32_t *name)
 
 int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
 {
-    struct drm_virgl_3d_resource_create create;
-    int ret;
-    memset(&create, 0, sizeof(create));
-    create.target = 2;
-    create.format = 1;
-    create.width = surf->pixmap->drawable.width;
-    create.height = surf->pixmap->drawable.height;
-    create.depth = 1;
-
-    ret = drmIoctl(surf->virgl->drm_fd, DRM_IOCTL_VIRGL_RESOURCE_CREATE, &create);
-    if (ret)
-	return ret;
-
-    surf->drm_res_handle = create.res_handle;
+    surf->bo = virgl_bo_alloc(surf->virgl, 2, 1, (1 << 1), surf->pixmap->drawable.width, surf->pixmap->drawable.height);
     return 0;
 }
 
-static int virgl_3d_alloc(int fd, int size, uint32_t *handle)
-{
-  int ret;
-  struct drm_virgl_alloc alloccmd;
-
-  alloccmd.size = size;
-  alloccmd.handle = 0;
-
-  ret = drmIoctl(fd, DRM_IOCTL_VIRGL_ALLOC, &alloccmd);
-  if (ret == 0)
-    *handle = alloccmd.handle;
-  return ret;
-}
-
-static int virgl_3d_transfer_put(int fd, uint32_t res_handle, uint32_t bo_handle,
-			       struct drm_virgl_3d_box *transfer_box,
-			       uint32_t src_stride,
+static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
+				 struct drm_virgl_3d_box *transfer_box,
+				 uint32_t src_stride,
 				 uint32_t level)
 {
   struct drm_virgl_3d_transfer_put putcmd;
+  struct virgl_kms_bo *bo = _bo;
   int ret;
 
-  putcmd.res_handle = res_handle;
-  putcmd.bo_handle = bo_handle;
+  putcmd.bo_handle = bo->handle;
   putcmd.dst_box = *transfer_box;
   putcmd.dst_level = level;
   putcmd.src_stride = src_stride;
@@ -846,14 +746,14 @@ static int virgl_3d_transfer_put(int fd, uint32_t res_handle, uint32_t bo_handle
   return ret;
 }
 
-static int virgl_3d_transfer_get(int fd, uint32_t res_handle, uint32_t bo_handle,
+static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
 				 struct drm_virgl_3d_box *box, uint32_t level)
 {
   struct drm_virgl_3d_transfer_get getcmd;
+  struct virgl_kms_bo *bo = _bo;
   int ret;
   
-  getcmd.res_handle = res_handle;
-  getcmd.bo_handle = bo_handle;
+  getcmd.bo_handle = bo->handle;
   getcmd.level = level;
   getcmd.box = *box;
   getcmd.dst_offset = 0;
@@ -873,32 +773,8 @@ static int virgl_3d_wait(int fd, int handle)
   return ret;
 }
 
-static void gem_close(int fd, uint32_t handle)
-{
-	struct drm_gem_close close_bo;
-
-	close_bo.handle = handle;
-	drmIoctl(fd, DRM_IOCTL_GEM_CLOSE, &close_bo);
-}
-
-static void *gem_mmap(int fd, uint32_t handle, int size, int prot)
-{
-	struct drm_virgl_map mmap_arg;
-	void *ptr;
-
-	mmap_arg.handle = handle;
-	if (drmIoctl(fd, DRM_IOCTL_VIRGL_MAP, &mmap_arg))
-		return NULL;
-
-	ptr = mmap(0, size, prot, MAP_SHARED, fd, mmap_arg.offset);
-	if (ptr == MAP_FAILED)
-		ptr = NULL;
-
-	return ptr;
-}
-
 void virgl_kms_transfer_block(struct virgl_surface_t *surf,
-			    int x1, int y1, int x2, int y2)
+			      int x1, int y1, int x2, int y2)
 {
    int ret;
    uint32_t bo_handle;
@@ -918,39 +794,8 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    transfer_box.z = 0;
    transfer_box.d = 1;
 
-   size =  width * height * 4;
-   data = pixman_image_get_data (surf->host_image);
-   stride = pixman_image_get_stride (surf->host_image);
-
-   ret = virgl_3d_alloc(fd, size, &bo_handle);
-   if (ret) {
-      fprintf(stderr,"failed to create bo1 %d\n", ret);
-      return ;
-   }
-   
-   ptr = gem_mmap(fd, bo_handle, size, PROT_READ|PROT_WRITE);
-   if (!ptr) {
-   }
-
-   data += y1 * stride + x1 * 4;
-
-   if (width * 4 == stride)
-       memcpy(ptr, data, size);
-   else {
-       int h;
-       void *mptr = ptr;
-       for (h = 0; h < height; h++) {
-	   memcpy(mptr, data, width * 4);
-	   data += stride;
-	   mptr += width * 4;
-       }
-   }
-
-   ret = virgl_3d_transfer_put(fd, surf->drm_res_handle, bo_handle,
+   ret = virgl_3d_transfer_put(fd, surf->bo,
 			       &transfer_box, 0, 0);
-
-   munmap(ptr, size);
-   gem_close(fd, bo_handle);
 }
 
 
@@ -969,10 +814,6 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
    void *data;
    int stride;
 
-   data = pixman_image_get_data (surf->host_image);
-   stride = pixman_image_get_stride (surf->host_image);
-   size =  width * height * 4;
-
    memset(&box, 0, sizeof(box));
 
    box.x = x1;
@@ -982,33 +823,9 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
    box.z = 0;
    box.d = 1;
 
-   ret = virgl_3d_alloc(fd, size, &bo_handle);
-   if (ret) {
-      fprintf(stderr,"failed to create bo1 %d\n", ret);
-      return;
-   }
-   ret = virgl_3d_transfer_get(fd, surf->drm_res_handle, bo_handle, &box, 0);
+   ret = virgl_3d_transfer_get(fd, surf->bo, &box, 0);
 
    ret = virgl_3d_wait(fd, bo_handle);
-   
-   ptr = gem_mmap(fd, bo_handle, size, PROT_READ|PROT_WRITE);
-
-   data += y1 * stride + x1 * 4;
-   if (width * 4 == stride)
-       memcpy(data, ptr, size);
-   else {
-       int h;
-       void *mptr = ptr;
-       for (h = 0; h < height; h++) {
-	   memcpy(data, mptr, width * 4);
-	   data += stride;
-	   mptr += width * 4;
-       }
-   }
-       
-
-   munmap(ptr, size);
-   gem_close(fd, bo_handle);
 }
 
 int virgl_execbuffer(int fd, uint32_t *block, int ndw)

@@ -60,6 +60,8 @@
  
 typedef struct _virgl_screen_t virgl_screen_t;
 
+struct virgl_bo;
+
 struct virgl_surface_t
 {
     virgl_screen_t *virgl;
@@ -70,7 +72,8 @@ struct virgl_surface_t
     RegionRec		access_region;
     PixmapPtr		pixmap;
 
-    int drm_res_handle;
+//    int drm_res_handle;
+    struct virgl_bo *bo;
 
     union
     {
@@ -101,15 +104,12 @@ enum {
     OPTION_COUNT,
 };
 
-struct virgl_bo;
 /*
  * for relocations
  * dst_bo + dst_offset are the bo and offset into which the reloc is being written,
  * src_bo is the bo who's offset is being relocated.
  */
 struct virgl_bo_funcs {
-    struct virgl_bo *(*bo_alloc)(virgl_screen_t *virgl, unsigned long size, const char *name);
-    struct virgl_bo *(*cmd_alloc)(virgl_screen_t *virgl, unsigned long size, const char *name);
     void *(*bo_map)(struct virgl_bo *bo);
     void (*bo_unmap)(struct virgl_bo *bo);
     void (*bo_decref)(virgl_screen_t *virgl, struct virgl_bo *bo);
@@ -290,7 +290,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
 			    int x1, int y1, int x2, int y2);
 void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
 				int x1, int y1, int x2, int y2);
-int virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format);
+struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format);
 int virgl_execbuffer(int fd, uint32_t *block, int ndw);
 struct graw_encoder_state *graw_encoder_init_queue(int fd);
 int graw_encode_resource_copy_region(struct graw_encoder_state *enc,
@@ -321,9 +321,8 @@ void virgl_get_formats (int bpp, pixman_format_code_t *pformat);
 void virgl_flush(virgl_screen_t *virgl);
 #define VIRGL_CREATE_PIXMAP_DRI2 0x10000000
 
-int virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
-					 uint32_t width, uint32_t height);
-int virgl_link_cursor(virgl_screen_t *virgl,
-		      struct virgl_bo *_bo,
-		      uint32_t res_handle);
+struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
+							  uint32_t width, uint32_t height);
+
+
 #endif // VIRGL_H

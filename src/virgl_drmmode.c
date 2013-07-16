@@ -150,7 +150,7 @@ drmmode_set_mode_major(xf86CrtcPtr crtc, DisplayModePtr mode,
 				   pScrn->virtualX, height,
                                    pScrn->depth, pScrn->bitsPerPixel,
 				   pitch,
-				   virgl->primary->drm_res_handle,
+				   virgl_kms_bo_get_handle(virgl->primary->bo),
                                    &drmmode->fb_id);
                 if (ret < 0) {
                         ErrorF("failed to add fb\n");
@@ -345,18 +345,13 @@ drmmode_crtc_init(ScrnInfoPtr pScrn, drmmode_ptr drmmode, int num)
 	{
 		int cursor_size = 64*4*64;
 
-		drmmode_crtc->cursor_bo = virgl->bo_funcs->bo_alloc(virgl, cursor_size, "cursor");
+		drmmode_crtc->cursor_bo = virgl_bo_create_argb_cursor_resource(virgl, 64, 64);
 		if (!drmmode_crtc->cursor_bo) {
 			ErrorF("failed to allocate cursor buffer\n");
 			return;
 		}
 
 		drmmode_crtc->cursor_ptr = virgl->bo_funcs->bo_map(drmmode_crtc->cursor_bo);
-
-		/* create a resource for cursor */
-		drmmode_crtc->cursor_res_handle = virgl_bo_create_argb_cursor_resource(virgl, 64, 64);
-		virgl_link_cursor(virgl, drmmode_crtc->cursor_bo, drmmode_crtc->cursor_res_handle);
-
 	}
 	
 	return;
@@ -801,7 +796,7 @@ drmmode_xf86crtc_resize (ScrnInfoPtr scrn, int width, int height)
 			   width, height,
 			   scrn->depth, scrn->bitsPerPixel,
 			   pitch,
-			   virgl->primary->drm_res_handle,
+			   virgl_kms_bo_get_handle(virgl->primary->bo),
 			   &drmmode->fb_id);
 	if (ret)
 		goto fail;
