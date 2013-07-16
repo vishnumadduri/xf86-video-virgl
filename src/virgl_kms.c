@@ -544,12 +544,6 @@ static void virgl_bo_unmap(struct virgl_bo *_bo)
 {
 }
 
-static void virgl_bo_incref(virgl_screen_t *virgl, struct virgl_bo *_bo)
-{
-    struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
-    bo->refcnt++;
-}
-
 static void virgl_bo_decref(virgl_screen_t *virgl, struct virgl_bo *_bo)
 {
     struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
@@ -668,7 +662,6 @@ struct virgl_bo_funcs virgl_kms_bo_funcs = {
     virgl_bo_map,
     virgl_bo_unmap,
     virgl_bo_decref,
-    virgl_bo_incref,
     virgl_kms_surface_create,
     virgl_kms_surface_destroy,
 };

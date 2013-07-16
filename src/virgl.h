@@ -112,7 +112,6 @@ struct virgl_bo_funcs {
     void *(*bo_map)(struct virgl_bo *bo);
     void (*bo_unmap)(struct virgl_bo *bo);
     void (*bo_decref)(virgl_screen_t *virgl, struct virgl_bo *bo);
-    void (*bo_incref)(virgl_screen_t *virgl, struct virgl_bo *bo);
     virgl_surface_t *(*create_surface)(virgl_screen_t *virgl, int width,
 				     int height, int bpp, uint32_t usage_hint);
     void (*destroy_surface)(virgl_surface_t *surf);
