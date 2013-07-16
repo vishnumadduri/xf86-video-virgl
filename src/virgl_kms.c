@@ -469,7 +469,7 @@ struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
 				uint32_t target, uint32_t format, uint32_t bind,
 				uint32_t width, uint32_t height)
 {
-    struct drm_virgl_3d_resource_create create;
+    struct drm_virgl_resource_create create;
     struct virgl_kms_bo *bo;
     int ret;
     uint32_t size;
@@ -580,7 +580,6 @@ struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
 						      uint32_t width, uint32_t height) 
 {
     struct virgl_bo *bo;
-    struct drm_virgl_3d_resource_create res;
     int ret;
 
     bo = virgl_bo_alloc(virgl, 2, 1, (1 << 16), width, height);
