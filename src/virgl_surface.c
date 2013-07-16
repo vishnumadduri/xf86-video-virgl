@@ -27,7 +27,7 @@
 #include "virgl.h"
 
 
-void
+static void
 virgl_download_box (virgl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
     virgl_kms_transfer_get_block(surface, x1, y1, x2, y2);
@@ -107,12 +107,6 @@ virgl_surface_prepare_access (virgl_surface_t  *surface,
 
 
 static void
-real_upload_box (virgl_surface_t *surface, int x1, int y1, int x2, int y2)
-{
-    virgl_kms_transfer_block(surface, x1, y1, x2, y2); 
-}
-
-void
 virgl_upload_box (virgl_surface_t *surface, int x1, int y1, int x2, int y2)
 {
     virgl_kms_transfer_block(surface, x1, y1, x2, y2); 
@@ -226,10 +220,7 @@ virgl_surface_copy (virgl_surface_t *dest,
 		    int width, int height)
 {
     virgl_screen_t *virgl = dest->virgl;
-    struct virgl_bo *drawable_bo;
     struct drm_virgl_3d_box sbox, dbox;
-    int dheight = pixman_image_get_height(dest->host_image);
-    int sheight = pixman_image_get_height(dest->u.copy_src->host_image);
 
     sbox.x = src_x1;
     sbox.y = src_y1;
@@ -322,7 +313,7 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
     ScrnInfoPtr pScrn = virgl->pScrn;
     pixman_format_code_t format;
     uint8_t *dev_addr;
-    pixman_image_t *dev_image, *host_image;
+    pixman_image_t *host_image;
     virgl_surface_t *surface;
     struct virgl_bo *bo = NULL;
 
@@ -351,7 +342,7 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
     dev_addr = virgl->bo_funcs->bo_map(bo);
     host_image = pixman_image_create_bits (format, 
 					   pScrn->virtualX, pScrn->virtualY,
-					   dev_addr, pScrn->virtualX * 4);
+					   (uint32_t *)dev_addr, pScrn->virtualX * 4);
     surface = malloc (sizeof *surface);
     surface->host_image = host_image;
     surface->virgl = virgl;

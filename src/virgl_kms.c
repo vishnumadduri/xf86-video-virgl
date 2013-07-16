@@ -603,7 +603,7 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
     int ret;
     uint32_t *dev_addr;
     int handle;
-
+    void *ptr = NULL;
 
     if ((bpp & 3) != 0)
     {
@@ -635,12 +635,13 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
         surface->bo = virgl_bo_create_primary_resource(virgl, width, height, stride,
 						  format);
 
+	ptr = virgl->bo_funcs->bo_map(surface->bo);
     } else {
 	surface->bo = NULL;
     }
 
     surface->host_image = pixman_image_create_bits (
-	pformat, width, height, NULL, stride);
+	pformat, width, height, ptr, stride);
     REGION_INIT (NULL, &(surface->access_region), (BoxPtr)NULL, 0);
     surface->access_type = UXA_ACCESS_RO;
 
