@@ -72,7 +72,6 @@ struct virgl_surface_t
     RegionRec		access_region;
     PixmapPtr		pixmap;
 
-//    int drm_res_handle;
     struct virgl_bo *bo;
 
     union
@@ -114,9 +113,6 @@ struct virgl_bo_funcs {
     void (*bo_unmap)(struct virgl_bo *bo);
     void (*bo_decref)(virgl_screen_t *virgl, struct virgl_bo *bo);
     void (*bo_incref)(virgl_screen_t *virgl, struct virgl_bo *bo);
-    struct virgl_bo *(*create_primary)(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format);
-    void (*destroy_primary)(virgl_screen_t *virgl, struct virgl_bo *primary_bo);
-
     virgl_surface_t *(*create_surface)(virgl_screen_t *virgl, int width,
 				     int height, int bpp, uint32_t usage_hint);
     void (*destroy_surface)(virgl_surface_t *surf);
@@ -283,6 +279,7 @@ Bool virgl_resize_primary_to_virtual (virgl_screen_t *virgl);
 Bool virgl_pre_init_kms(ScrnInfoPtr pScrn, int flags);
 Bool virgl_kms_check_cap(virgl_screen_t *virgl, int cap);
 uint32_t virgl_kms_bo_get_handle(struct virgl_bo *_bo);
+uint32_t virgl_kms_bo_get_res_handle(struct virgl_bo *_bo);
 int virgl_kms_get_kernel_name(struct virgl_bo *_bo, uint32_t *name);
 
 int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf);

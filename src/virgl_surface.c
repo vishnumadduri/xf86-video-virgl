@@ -245,8 +245,8 @@ virgl_surface_copy (virgl_surface_t *dest,
     dbox.h = height;
     dbox.d = 1;
     graw_encode_blit(virgl->gr_enc,
-		     virgl_kms_bo_get_handle(dest->bo),
-		     virgl_kms_bo_get_handle(dest->u.copy_src->bo),
+		     virgl_kms_bo_get_res_handle(dest->bo),
+		     virgl_kms_bo_get_res_handle(dest->u.copy_src->bo),
 		     &dbox,
 		     &sbox);
 }
@@ -343,6 +343,10 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
 
 
     bo = virgl_bo_create_primary_resource(virgl, pScrn->virtualX, pScrn->virtualY, pScrn->virtualX * 4, bpp);
+    if (!bo) {
+      ErrorF("unable to allocate primary bo\n");
+      return NULL;
+    }
 
     dev_addr = virgl->bo_funcs->bo_map(bo);
     host_image = pixman_image_create_bits (format, 

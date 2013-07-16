@@ -462,6 +462,7 @@ struct virgl_kms_bo {
     virgl_screen_t *virgl;
     int refcnt;
     uint32_t kname;
+    uint32_t res_handle;
 };
 
 struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
@@ -496,7 +497,8 @@ struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
 
  out:
     bo->size = size;
-    bo->handle = create.res_handle;
+    bo->handle = create.bo_handle;
+    bo->res_handle = create.res_handle;
     bo->virgl = virgl;
     bo->refcnt = 1;
     return (struct virgl_bo *)bo;
@@ -593,22 +595,6 @@ struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
     return bo;
 }
 
-static struct virgl_bo *virgl_bo_create_primary(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format)
-{
-    struct virgl_kms_bo *bo;
-    int ret;
-
-    virgl->primary_bo = (struct virgl_bo *)bo;
-    return (struct virgl_bo *)bo;
-}
-
-static void virgl_bo_destroy_primary(virgl_screen_t *virgl, struct virgl_bo *bo)
-{
-    virgl_bo_decref(virgl, bo);
-
-    virgl->primary_bo = NULL;
-}
-
 static virgl_surface_t *
 virgl_kms_surface_create(virgl_screen_t *virgl,
 		       int width,
@@ -683,8 +669,6 @@ struct virgl_bo_funcs virgl_kms_bo_funcs = {
     virgl_bo_unmap,
     virgl_bo_decref,
     virgl_bo_incref,
-    virgl_bo_create_primary,
-    virgl_bo_destroy_primary,
     virgl_kms_surface_create,
     virgl_kms_surface_destroy,
 };
@@ -699,6 +683,13 @@ uint32_t virgl_kms_bo_get_handle(struct virgl_bo *_bo)
     struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
     
     return bo->handle;
+}
+
+uint32_t virgl_kms_bo_get_res_handle(struct virgl_bo *_bo)
+{
+    struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
+    
+    return bo->res_handle;
 }
 
 
@@ -762,12 +753,13 @@ static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
 }
 
 
-static int virgl_3d_wait(int fd, int handle)
+static int virgl_3d_wait(int fd, struct virgl_bo *_bo)
 {
   struct drm_virgl_3d_wait waitcmd;
+  struct virgl_kms_bo *bo = _bo;
   int ret;
 
-  waitcmd.handle = handle;
+  waitcmd.handle = bo->handle;
 
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_WAIT, &waitcmd);
   return ret;
@@ -777,7 +769,6 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
 			      int x1, int y1, int x2, int y2)
 {
    int ret;
-   uint32_t bo_handle;
    int fd = surf->virgl->drm_fd;
    int size;
    void *ptr;
@@ -804,7 +795,6 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
 {
 
    int ret;
-   uint32_t bo_handle;
    int fd = surf->virgl->drm_fd;
    int size;
    void *ptr;
@@ -825,7 +815,7 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
 
    ret = virgl_3d_transfer_get(fd, surf->bo, &box, 0);
 
-   ret = virgl_3d_wait(fd, bo_handle);
+   ret = virgl_3d_wait(fd, surf->bo);
 }
 
 int virgl_execbuffer(int fd, uint32_t *block, int ndw)
