@@ -340,7 +340,7 @@ virgl_set_screen_pixmap_header (ScreenPtr pScreen)
 	pScreen->ModifyPixmapHeader (pPixmap,
 	                             pScrn->virtualX, pScrn->virtualY,
 	                             -1, -1,
-	                             pScrn->virtualX * 4,
+	                             pScrn->virtualX * (pPixmap->drawable.bitsPerPixel + 7) / 8,
 	                             virgl_surface_get_host_bits(virgl->primary));
     }
     else
@@ -473,7 +473,16 @@ struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     struct virgl_kms_bo *bo;
     int ret;
     uint32_t size;
-    size = width * height * 4; // TODO
+    int bpp;
+
+    if (format == 2 || format == 1)
+	bpp = 4;
+    else if (format == 10)
+	bpp = 1;
+    else if (format == 7)
+	bpp = 2;
+
+    size = width * height * bpp;
     bo = calloc(1, sizeof(struct virgl_kms_bo));
     if (!bo)
 	return NULL;
@@ -572,7 +581,7 @@ struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_
     /* create a resource */
     struct virgl_bo *bo;
 
-    bo = virgl_bo_alloc(virgl, 2, 1, (1 << 1), width, height);
+    bo = virgl_bo_alloc(virgl, 2, format, (1 << 1), width, height);
     return bo;
 }
 
@@ -582,7 +591,7 @@ struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
     struct virgl_bo *bo;
     int ret;
 
-    bo = virgl_bo_alloc(virgl, 2, 1, (1 << 16), width, height);
+    bo = virgl_bo_alloc(virgl, 2, VIRGL_FORMAT_B8G8R8A8_UNORM, (1 << 16), width, height);
     if (!bo)
 	return NULL;
     return bo;
@@ -598,7 +607,7 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
     int stride;
     struct virgl_kms_bo *bo = NULL;
     pixman_format_code_t pformat;
-    int format;
+    uint32_t format;
     void *dev_ptr;
     int ret;
     uint32_t *dev_addr;
@@ -623,9 +632,8 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
 	return NULL;
     }
 
-    virgl_get_formats (bpp, &pformat);
-    stride = width * 32 / 8;
-    stride = (stride + 3) & ~3;
+    virgl_get_formats (bpp, &pformat, &format);
+    stride = width * (bpp / 8);
 
     /* then fill out the driver surface */
     surface = calloc(1, sizeof *surface);
@@ -708,13 +716,19 @@ int virgl_kms_get_kernel_name(struct virgl_bo *_bo, uint32_t *name)
 
 int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
 {
-    surf->bo = virgl_bo_alloc(surf->virgl, 2, 1, (1 << 1), surf->pixmap->drawable.width, surf->pixmap->drawable.height);
+    uint32_t format;
+    pixman_format_code_t pformat;
+
+    virgl_get_formats(&surf->pixmap->drawable.bitsPerPixel, &pformat, &format);
+    
+    surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), surf->pixmap->drawable.width, surf->pixmap->drawable.height);
     return 0;
 }
 
 static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
 				 struct drm_virgl_3d_box *transfer_box,
 				 uint32_t src_stride,
+				 uint32_t src_offset,
 				 uint32_t level)
 {
   struct drm_virgl_3d_transfer_put putcmd;
@@ -725,13 +739,14 @@ static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
   putcmd.dst_box = *transfer_box;
   putcmd.dst_level = level;
   putcmd.src_stride = src_stride;
-  putcmd.src_offset = 0;
+  putcmd.src_offset = src_offset;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_PUT, &putcmd);
   return ret;
 }
 
 static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
-				 struct drm_virgl_3d_box *box, uint32_t level)
+				 struct drm_virgl_3d_box *box,
+				 uint32_t dst_stride, uint32_t dst_offset, uint32_t level)
 {
   struct drm_virgl_3d_transfer_get getcmd;
   struct virgl_kms_bo *bo = _bo;
@@ -740,7 +755,8 @@ static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
   getcmd.bo_handle = bo->handle;
   getcmd.level = level;
   getcmd.box = *box;
-  getcmd.dst_offset = 0;
+  getcmd.dst_offset = dst_offset;
+  getcmd.dst_stride = dst_stride;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_GET, &getcmd);
   return ret;
 }
@@ -769,7 +785,9 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    int height = y2 - y1;
    struct drm_virgl_3d_box transfer_box;
    void *data;
-   int stride;
+   int stride = pixman_image_get_stride(surf->host_image);
+   int cpp = (surf->pixmap->drawable.bitsPerPixel + 7) / 8;
+   uint32_t offset = (y1 * stride) + (x1 * cpp);
 
    transfer_box.x = x1;
    transfer_box.y = y1;
@@ -779,7 +797,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    transfer_box.d = 1;
 
    ret = virgl_3d_transfer_put(fd, surf->bo,
-			       &transfer_box, 0, 0);
+			       &transfer_box, stride, offset, 0);
 }
 
 
@@ -795,9 +813,12 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
    int height = y2 - y1;
    struct drm_virgl_3d_box box;
    void *data;
-   int stride;
-
+   int cpp = (surf->pixmap->drawable.bitsPerPixel + 7) / 8;
+   uint32_t offset;
+   int stride = pixman_image_get_stride(surf->host_image);
    memset(&box, 0, sizeof(box));
+
+   offset = y1 * stride + (x1 * cpp);
 
    box.x = x1;
    box.y = y1;
@@ -806,7 +827,7 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
    box.z = 0;
    box.d = 1;
 
-   ret = virgl_3d_transfer_get(fd, surf->bo, &box, 0);
+   ret = virgl_3d_transfer_get(fd, surf->bo, &box, stride, offset, 0);
 
    ret = virgl_3d_wait(fd, surf->bo);
 }

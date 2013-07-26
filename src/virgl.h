@@ -313,12 +313,19 @@ void virgl_dri2_fini(ScreenPtr pScreen);
 void *              virgl_surface_get_host_bits(virgl_surface_t *surface);
 
 virgl_surface_t *virgl_create_primary (virgl_screen_t *virgl, int bpp);
-void virgl_get_formats (int bpp, pixman_format_code_t *pformat);
+void virgl_get_formats (int bpp, pixman_format_code_t *pformat, uint32_t *virgl_format);
 void virgl_flush(virgl_screen_t *virgl);
 #define VIRGL_CREATE_PIXMAP_DRI2 0x10000000
 
 struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
 							  uint32_t width, uint32_t height);
 
+/* formats */
+#define VIRGL_FORMAT_B8G8R8A8_UNORM 1
+#define VIRGL_FORMAT_B8G8R8X8_UNORM 2
+
+#define VIRGL_FORMAT_B5G6R5_UNORM   7
+#define VIRGL_FORMAT_A8_UNORM       10
 
 #endif // VIRGL_H
+

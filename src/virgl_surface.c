@@ -281,28 +281,33 @@ virgl_surface_put_image (virgl_surface_t *dest,
 }
 
 void
-virgl_get_formats (int bpp, pixman_format_code_t *pformat)
+virgl_get_formats (int bpp, pixman_format_code_t *pformat, uint32_t *virgl_format)
 {
     switch (bpp)
     {
     case 8:
 	*pformat = PIXMAN_a8;
+	*virgl_format = VIRGL_FORMAT_A8_UNORM;
 	break;
 
     case 16:
 	*pformat = PIXMAN_r5g6b5;
+	*virgl_format = VIRGL_FORMAT_B5G6R5_UNORM;
 	break;
 
     case 24:
-	*pformat = PIXMAN_a8r8g8b8;
+	*pformat = PIXMAN_x8r8g8b8;
+	*virgl_format = VIRGL_FORMAT_B8G8R8X8_UNORM;
 	break;
 	
     case 32:
 	*pformat = PIXMAN_a8r8g8b8;
+	*virgl_format = VIRGL_FORMAT_B8G8R8A8_UNORM;
 	break;
 
     default:
 	*pformat = -1;
+	*virgl_format = 0;
 	break;
     }
 }
@@ -311,38 +316,29 @@ virgl_surface_t *
 virgl_create_primary (virgl_screen_t *virgl, int bpp)
 {
     ScrnInfoPtr pScrn = virgl->pScrn;
-    pixman_format_code_t format;
+    pixman_format_code_t pformat;
     uint8_t *dev_addr;
     pixman_image_t *host_image;
     virgl_surface_t *surface;
     struct virgl_bo *bo = NULL;
-
-    if (bpp == 16)
-    {
-	format = PIXMAN_x1r5g5b5;
-    }
-    else if (bpp == 32)
-    {
-	format = PIXMAN_x8r8g8b8;
-    }
-    else
-    {
-	xf86DrvMsg (virgl->pScrn->scrnIndex, X_ERROR,
-		    "Unknown bit depth %d\n", bpp);
-	return NULL;
+    uint32_t format;
+    int cpp = (bpp + 7) >> 3;
+    virgl_get_formats(bpp, &pformat, &format);
+    if (pformat == -1) {
+      ErrorF("unknown pixel format\n");
+      return NULL;
     }
 
-
-    bo = virgl_bo_create_primary_resource(virgl, pScrn->virtualX, pScrn->virtualY, pScrn->virtualX * 4, bpp);
+    bo = virgl_bo_create_primary_resource(virgl, pScrn->virtualX, pScrn->virtualY, pScrn->virtualX * cpp, format);
     if (!bo) {
       ErrorF("unable to allocate primary bo\n");
       return NULL;
     }
 
     dev_addr = virgl->bo_funcs->bo_map(bo);
-    host_image = pixman_image_create_bits (format, 
+    host_image = pixman_image_create_bits (pformat, 
 					   pScrn->virtualX, pScrn->virtualY,
-					   (uint32_t *)dev_addr, pScrn->virtualX * 4);
+					   (uint32_t *)dev_addr, pScrn->virtualX * cpp);
     surface = malloc (sizeof *surface);
     surface->host_image = host_image;
     surface->virgl = virgl;
