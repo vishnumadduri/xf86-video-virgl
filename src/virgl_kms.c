@@ -268,6 +268,7 @@ virgl_create_screen_resources_kms(ScreenPtr pScreen)
         virgl->bo_funcs->destroy_surface(surf);
     
     set_surface (pPixmap, virgl->primary);
+    virgl_surface_set_pixmap (virgl->primary, pPixmap);
 
     virgl->gr_enc = graw_encoder_init_queue(virgl->drm_fd);
     virgl->damage = DamageCreate(NULL, NULL, DamageReportNone, TRUE,
