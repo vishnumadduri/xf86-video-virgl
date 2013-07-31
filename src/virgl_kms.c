@@ -495,7 +495,7 @@ struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     create.width = width;
     create.height = height;
     create.depth = 1;
-    create.size = size;
+    create.array_size = 1;
 
     ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRGL_RESOURCE_CREATE, &create);
     if (ret) {
@@ -506,7 +506,7 @@ struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     }
 
  out:
-    bo->size = size;
+    bo->size = create.size;
     bo->handle = create.bo_handle;
     bo->res_handle = create.res_handle;
     bo->virgl = virgl;
@@ -728,7 +728,6 @@ int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
 
 static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
 				 struct drm_virgl_3d_box *transfer_box,
-				 uint32_t src_stride,
 				 uint32_t src_offset,
 				 uint32_t level)
 {
@@ -739,7 +738,6 @@ static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
   putcmd.bo_handle = bo->handle;
   putcmd.dst_box = *transfer_box;
   putcmd.dst_level = level;
-  putcmd.src_stride = src_stride;
   putcmd.src_offset = src_offset;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_PUT, &putcmd);
   return ret;
@@ -747,7 +745,7 @@ static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
 
 static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
 				 struct drm_virgl_3d_box *box,
-				 uint32_t dst_stride, uint32_t dst_offset, uint32_t level)
+				 uint32_t dst_offset, uint32_t level)
 {
   struct drm_virgl_3d_transfer_get getcmd;
   struct virgl_kms_bo *bo = _bo;
@@ -757,7 +755,6 @@ static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
   getcmd.level = level;
   getcmd.box = *box;
   getcmd.dst_offset = dst_offset;
-  getcmd.dst_stride = dst_stride;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_GET, &getcmd);
   return ret;
 }
@@ -798,7 +795,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    transfer_box.d = 1;
 
    ret = virgl_3d_transfer_put(fd, surf->bo,
-			       &transfer_box, stride, offset, 0);
+			       &transfer_box, offset, 0);
 }
 
 
@@ -828,7 +825,7 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
    box.z = 0;
    box.d = 1;
 
-   ret = virgl_3d_transfer_get(fd, surf->bo, &box, stride, offset, 0);
+   ret = virgl_3d_transfer_get(fd, surf->bo, &box, offset, 0);
 
    ret = virgl_3d_wait(fd, surf->bo);
 }
