@@ -49,14 +49,7 @@ virgl_surface_prepare_access (virgl_surface_t  *surface,
         return FALSE;
 
     if (!surface->bo) {
-	pScreen->ModifyPixmapHeader(
-				    pixmap,
-				    pixmap->drawable.width,
-				    pixmap->drawable.height,
-				    -1, -1, -1, pixman_image_get_data(surface->host_image));
-
-	pixmap->devKind = pixman_image_get_stride (surface->host_image);
-	return TRUE; 
+	goto out;
     }
 
     REGION_INIT (NULL, &new, (BoxPtr)NULL, 0);
@@ -92,7 +85,8 @@ virgl_surface_prepare_access (virgl_surface_t  *surface,
 		      region);
     
     REGION_UNINIT (NULL, &new);
-    
+
+ out:    
     pScreen->ModifyPixmapHeader(
 	pixmap,
 	pixmap->drawable.width,
