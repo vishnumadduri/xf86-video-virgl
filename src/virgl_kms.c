@@ -721,10 +721,34 @@ int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
 {
     uint32_t format;
     pixman_format_code_t pformat;
+    void *ptr;
+    pixman_image_t *new_image;
 
-    virgl_get_formats(&surf->pixmap->drawable.bitsPerPixel, &pformat, &format);
+    int width, height;
+
+    width = surf->pixmap->drawable.width;
+    height = surf->pixmap->drawable.height;
+    virgl_get_formats(surf->pixmap->drawable.bitsPerPixel, &pformat, &format);
     
-    surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), surf->pixmap->drawable.width, surf->pixmap->drawable.height);
+    surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), width, height);
+
+    ptr = virgl_bo_map(surf->bo);
+
+    new_image = pixman_image_create_bits (pformat, width, height, ptr, pixman_image_get_stride(surf->host_image));
+
+    if (!new_image) {
+	ErrorF("failed to allocate new image\n");
+	return 0;
+    }
+    pixman_image_composite (PIXMAN_OP_SRC,
+			    surf->host_image,
+			    NULL,
+			    new_image,
+			    0, 0, 0, 0, 0, 0, width, height);
+
+    
+    pixman_image_unref(surf->host_image);
+    surf->host_image = new_image;
     return 0;
 }
 
