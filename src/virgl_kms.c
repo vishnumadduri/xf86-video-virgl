@@ -661,6 +661,8 @@ static void virgl_kms_surface_destroy(virgl_surface_t *surf)
 {
     virgl_screen_t *virgl = surf->virgl;
 
+    if (surf->bo)
+        virgl_bo_decref(virgl, surf->bo);
     if (surf->host_image)
 	pixman_image_unref (surf->host_image);
 
