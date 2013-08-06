@@ -767,7 +767,7 @@ static int virgl_3d_wait(int fd, struct virgl_bo *_bo)
   int ret;
 
   waitcmd.handle = bo->handle;
-
+  waitcmd.flags = 0;
   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_WAIT, &waitcmd);
   return ret;
 }
