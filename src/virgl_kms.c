@@ -496,6 +496,8 @@ struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     create.height = height;
     create.depth = 1;
     create.array_size = 1;
+    create.size = size;
+    create.stride = width * bpp;
 
     ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRGL_RESOURCE_CREATE, &create);
     if (ret) {
@@ -506,7 +508,7 @@ struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     }
 
  out:
-    bo->size = create.size;
+    bo->size = size;
     bo->handle = create.bo_handle;
     bo->res_handle = create.res_handle;
     bo->virgl = virgl;
