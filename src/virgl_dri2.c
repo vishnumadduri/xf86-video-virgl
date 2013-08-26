@@ -90,7 +90,7 @@ virgl_dri2_create_buffer2(ScreenPtr screen, DrawablePtr draw, unsigned int attac
 
 	/* get name */
 	surf = get_surface(ppix);
-	if (ppix->usage_hint == CREATE_PIXMAP_USAGE_BACKING_PIXMAP) {
+	if (1 || ppix->usage_hint == CREATE_PIXMAP_USAGE_BACKING_PIXMAP) {
 	    if (!surf->bo) {
 		virgl_kms_3d_resource_migrate(surf);
 		virgl_kms_transfer_block(surf, 0, 0, surf->pixmap->drawable.width, surf->pixmap->drawable.height);
