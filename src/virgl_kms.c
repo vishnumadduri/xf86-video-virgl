@@ -466,7 +466,7 @@ struct virgl_kms_bo {
     uint32_t res_handle;
 };
 
-struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
+static struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
 				uint32_t target, uint32_t format, uint32_t bind,
 				uint32_t width, uint32_t height)
 {
@@ -872,6 +872,7 @@ int virgl_execbuffer(int fd, uint32_t *block, int ndw)
    if (ndw == 0)
       return 0;
 
+   memset(&eb, 0, sizeof(struct drm_virgl_execbuffer));
    eb.flags = 0;
    eb.command = (unsigned long)(void *)block;
    eb.size = ndw * 4;
