@@ -474,7 +474,7 @@ static struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     struct virgl_kms_bo *bo;
     int ret;
     uint32_t size;
-    int bpp;
+    int bpp = 4;
 
     if (format == 2 || format == 1)
 	bpp = 4;
@@ -906,7 +906,6 @@ enum graw_cmd {
 static inline void graw_encoder_write_dword(struct graw_encoder_state *state,
                                             uint32_t dword)
 {
-   fprintf(stderr,"[%d] 0x%x\n", state->buf_offset, dword);
    state->buf[state->buf_offset++] = dword;
 }
 
