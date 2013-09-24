@@ -467,8 +467,8 @@ struct virgl_kms_bo {
 };
 
 static struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
-				uint32_t target, uint32_t format, uint32_t bind,
-				uint32_t width, uint32_t height)
+				       uint32_t target, uint32_t format, uint32_t bind,
+				       uint32_t width, uint32_t height, int flags)
 {
     struct drm_virgl_resource_create create;
     struct virgl_kms_bo *bo;
@@ -498,6 +498,7 @@ static struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     create.array_size = 1;
     create.size = size;
     create.stride = width * bpp;
+    create.flags = flags;
 
     ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRGL_RESOURCE_CREATE, &create);
     if (ret) {
@@ -584,7 +585,7 @@ struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_
     /* create a resource */
     struct virgl_bo *bo;
 
-    bo = virgl_bo_alloc(virgl, 2, format, (1 << 1), width, height);
+    bo = virgl_bo_alloc(virgl, 2, format, (1 << 1), width, height, 1);
     return bo;
 }
 
@@ -594,7 +595,7 @@ struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
     struct virgl_bo *bo;
     int ret;
 
-    bo = virgl_bo_alloc(virgl, 2, VIRGL_FORMAT_B8G8R8A8_UNORM, (1 << 16), width, height);
+    bo = virgl_bo_alloc(virgl, 2, VIRGL_FORMAT_B8G8R8A8_UNORM, (1 << 16), width, height, 1);
     if (!bo)
 	return NULL;
     return bo;
@@ -732,7 +733,7 @@ int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
     height = surf->pixmap->drawable.height;
     virgl_get_formats(surf->pixmap->drawable.bitsPerPixel, &pformat, &format);
     
-    surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), width, height);
+    surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), width, height, 1);
 
     ptr = virgl_bo_map(surf->bo);
 
