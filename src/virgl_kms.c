@@ -1009,6 +1009,14 @@ struct graw_encoder_state *graw_encoder_init_queue(int fd)
 
 #endif
 
+Bool virgl_switch_mode(SWITCH_MODE_ARGS_DECL)
+{
+    SCRN_INFO_PTR(arg);
+    Bool ret;
+    ret = xf86SetSingleMode (pScrn, mode, RR_Rotate_0);
+    return ret;
+}
+
 static XF86ModuleVersionInfo virgl_module_info =
 {
     VIRGL_DRIVER_NAME,
@@ -1072,6 +1080,7 @@ virgl_init_scrn (ScrnInfoPtr pScrn)
     pScrn->EnterVT          = virgl_enter_vt_kms;
     pScrn->LeaveVT          = virgl_leave_vt_kms;
 
+    pScrn->SwitchMode       = virgl_switch_mode;
     pScrn->ValidMode        = NULL;
 }
 
