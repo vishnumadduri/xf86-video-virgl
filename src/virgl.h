@@ -286,7 +286,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
 			    int x1, int y1, int x2, int y2);
 void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
 				int x1, int y1, int x2, int y2);
-struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format);
+struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format, int flags);
 int virgl_execbuffer(int fd, uint32_t *block, int ndw);
 struct graw_encoder_state *graw_encoder_init_queue(int fd);
 int graw_encode_resource_copy_region(struct graw_encoder_state *enc,

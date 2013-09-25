@@ -323,7 +323,7 @@ virgl_create_primary (virgl_screen_t *virgl, int bpp)
       return NULL;
     }
 
-    bo = virgl_bo_create_primary_resource(virgl, pScrn->virtualX, pScrn->virtualY, pScrn->virtualX * cpp, format);
+    bo = virgl_bo_create_primary_resource(virgl, pScrn->virtualX, pScrn->virtualY, pScrn->virtualX * cpp, format, 1);
     if (!bo) {
       ErrorF("unable to allocate primary bo\n");
       return NULL;

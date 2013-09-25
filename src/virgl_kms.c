@@ -580,12 +580,12 @@ static void virgl_bo_decref(virgl_screen_t *virgl, struct virgl_bo *_bo)
     free(bo);
 }
 
-struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format)
+struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_t width, uint32_t height, int32_t stride, uint32_t format, int flags)
 {
     /* create a resource */
     struct virgl_bo *bo;
 
-    bo = virgl_bo_alloc(virgl, 2, format, (1 << 1), width, height, 1);
+    bo = virgl_bo_alloc(virgl, 2, format, (1 << 1), width, height, flags);
     return bo;
 }
 
@@ -645,7 +645,7 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
 
     if (usage_hint & VIRGL_CREATE_PIXMAP_DRI2) {
         surface->bo = virgl_bo_create_primary_resource(virgl, width, height, stride,
-						  format);
+						       format, 0);
 
 	ptr = virgl->bo_funcs->bo_map(surface->bo);
     } else {
@@ -733,7 +733,7 @@ int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
     height = surf->pixmap->drawable.height;
     virgl_get_formats(surf->pixmap->drawable.bitsPerPixel, &pformat, &format);
     
-    surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), width, height, 1);
+    surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), width, height, 0);
 
     ptr = virgl_bo_map(surf->bo);
 
