@@ -214,7 +214,7 @@ virgl_surface_copy (virgl_surface_t *dest,
 		    int width, int height)
 {
     virgl_screen_t *virgl = dest->virgl;
-    struct drm_virgl_3d_box sbox, dbox;
+    struct drm_virtgpu_3d_box sbox, dbox;
 
     sbox.x = src_x1;
     sbox.y = src_y1;

@@ -470,7 +470,7 @@ static struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
 				       uint32_t target, uint32_t format, uint32_t bind,
 				       uint32_t width, uint32_t height, int flags)
 {
-    struct drm_virgl_resource_create create;
+    struct drm_virtgpu_resource_create create;
     struct virgl_kms_bo *bo;
     int ret;
     uint32_t size;
@@ -500,7 +500,7 @@ static struct virgl_bo *virgl_bo_alloc(virgl_screen_t *virgl,
     create.stride = width * bpp;
     create.flags = flags;
 
-    ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRGL_RESOURCE_CREATE, &create);
+    ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRTGPU_RESOURCE_CREATE, &create);
     if (ret) {
         xf86DrvMsg(virgl->pScrn->scrnIndex, X_ERROR,
                    "error doing VIRGL resource create\n");
@@ -521,7 +521,7 @@ static void *virgl_bo_map(struct virgl_bo *_bo)
 {
     struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
     void *map;
-    struct drm_virgl_map virgl_map;
+    struct drm_virtgpu_map virgl_map;
     virgl_screen_t *virgl;
 
     if (!bo)
@@ -535,7 +535,7 @@ static void *virgl_bo_map(struct virgl_bo *_bo)
 
     virgl_map.handle = bo->handle;
     
-    if (drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRGL_MAP, &virgl_map)) {
+    if (drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRTGPU_MAP, &virgl_map)) {
 	xf86DrvMsg(virgl->pScrn->scrnIndex, X_ERROR,
                    "error doing VIRGL_MAP: %s\n", strerror(errno));
         return NULL;
@@ -755,13 +755,13 @@ int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
     return 0;
 }
 
-static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
-				 struct drm_virgl_3d_box *transfer_box,
+static int virgl_3d_transfer_to_host(int fd, struct virgl_bo *_bo,
+				 struct drm_virtgpu_3d_box *transfer_box,
 				 uint32_t stride,
 				 uint32_t offset,
 				 uint32_t level)
 {
-  struct drm_virgl_3d_transfer_put putcmd;
+  struct drm_virtgpu_3d_transfer_to_host putcmd;
   struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
   int ret;
 
@@ -769,18 +769,18 @@ static int virgl_3d_transfer_put(int fd, struct virgl_bo *_bo,
   putcmd.box = *transfer_box;
   putcmd.level = level;
   putcmd.offset = offset;
-  putcmd.stride = stride;
-  putcmd.layer_stride = 0;
-  ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_PUT, &putcmd);
+  //putcmd.stride = stride;
+  //putcmd.layer_stride = 0;
+  ret = drmIoctl(fd, DRM_IOCTL_VIRTGPU_TRANSFER_TO_HOST, &putcmd);
   return ret;
 }
 
-static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
-				 struct drm_virgl_3d_box *box,
+static int virgl_3d_transfer_from_host(int fd, struct virgl_bo *_bo,
+				 struct drm_virtgpu_3d_box *box,
 				 uint32_t stride,
 				 uint32_t dst_offset, uint32_t level)
 {
-  struct drm_virgl_3d_transfer_get getcmd;
+  struct drm_virtgpu_3d_transfer_from_host getcmd;
   struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
   int ret;
   
@@ -788,22 +788,22 @@ static int virgl_3d_transfer_get(int fd, struct virgl_bo *_bo,
   getcmd.level = level;
   getcmd.box = *box;
   getcmd.offset = dst_offset;
-  getcmd.stride = stride;
-  getcmd.layer_stride = 0;
-  ret = drmIoctl(fd, DRM_IOCTL_VIRGL_TRANSFER_GET, &getcmd);
+//  getcmd.stride = stride;
+ // getcmd.layer_stride = 0;
+  ret = drmIoctl(fd, DRM_IOCTL_VIRTGPU_TRANSFER_FROM_HOST, &getcmd);
   return ret;
 }
 
 
 static int virgl_3d_wait(int fd, struct virgl_bo *_bo)
 {
-  struct drm_virgl_3d_wait waitcmd;
+  struct drm_virtgpu_3d_wait waitcmd;
   struct virgl_kms_bo *bo = _bo;
   int ret;
 
   waitcmd.handle = bo->handle;
   waitcmd.flags = 0;
-  ret = drmIoctl(fd, DRM_IOCTL_VIRGL_WAIT, &waitcmd);
+  ret = drmIoctl(fd, DRM_IOCTL_VIRTGPU_WAIT, &waitcmd);
   return ret;
 }
 
@@ -816,7 +816,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    void *ptr;
    int width = x2 - x1;
    int height = y2 - y1;
-   struct drm_virgl_3d_box transfer_box;
+   struct drm_virtgpu_3d_box transfer_box;
    void *data;
    int stride = pixman_image_get_stride(surf->host_image);
    int cpp = (surf->pixmap->drawable.bitsPerPixel + 7) / 8;
@@ -829,7 +829,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
    transfer_box.z = 0;
    transfer_box.d = 1;
 
-   ret = virgl_3d_transfer_put(fd, surf->bo,
+   ret = virgl_3d_transfer_to_host(fd, surf->bo,
 			       &transfer_box, stride, offset, 0);
 }
 
@@ -844,7 +844,7 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
    void *ptr;
    int width = x2 - x1;
    int height = y2 - y1;
-   struct drm_virgl_3d_box box;
+   struct drm_virtgpu_3d_box box;
    void *data;
    int cpp = (surf->pixmap->drawable.bitsPerPixel + 7) / 8;
    uint32_t offset;
@@ -860,24 +860,24 @@ void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
    box.z = 0;
    box.d = 1;
 
-   ret = virgl_3d_transfer_get(fd, surf->bo, &box, stride, offset, 0);
+   ret = virgl_3d_transfer_from_host(fd, surf->bo, &box, stride, offset, 0);
 
    ret = virgl_3d_wait(fd, surf->bo);
 }
 
 int virgl_execbuffer(int fd, uint32_t *block, int ndw)
 {
-   struct drm_virgl_execbuffer eb;
+   struct drm_virtgpu_execbuffer eb;
    int ret;
 
    if (ndw == 0)
       return 0;
 
-   memset(&eb, 0, sizeof(struct drm_virgl_execbuffer));
+   memset(&eb, 0, sizeof(struct drm_virtgpu_execbuffer));
    eb.flags = 0;
    eb.command = (unsigned long)(void *)block;
    eb.size = ndw * 4;
-   ret = drmIoctl(fd, DRM_IOCTL_VIRGL_EXECBUFFER, &eb);
+   ret = drmIoctl(fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &eb);
    return ret;
 }
 
@@ -927,7 +927,7 @@ int graw_encode_resource_copy_region(struct graw_encoder_state *enc,
                                      unsigned dstx, unsigned dsty, unsigned dstz,
                                      uint32_t src_res_handle,
                                      unsigned src_level,
-                                     const struct drm_virgl_3d_box *src_box)
+                                     const struct drm_virtgpu_3d_box *src_box)
 {
    graw_encoder_write_cmd_dword(enc, GRAW_CMD0(GRAW_RESOURCE_COPY_REGION, 0, 13));
    graw_encoder_write_dword(enc, dst_res_handle);
@@ -948,8 +948,8 @@ int graw_encode_resource_copy_region(struct graw_encoder_state *enc,
 
 int graw_encode_blit(struct graw_encoder_state *enc,
                      uint32_t dst_handle, uint32_t src_handle,
-		     struct drm_virgl_3d_box *dbox,
-		     struct drm_virgl_3d_box *sbox)
+		     struct drm_virtgpu_3d_box *dbox,
+		     struct drm_virtgpu_3d_box *sbox)
 {
    graw_encoder_write_cmd_dword(enc, GRAW_CMD0(GRAW_BLIT, 0, 23));
    graw_encoder_write_dword(enc, 0xf);

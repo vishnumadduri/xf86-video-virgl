@@ -122,7 +122,7 @@ struct virgl_bo_funcs {
 void virgl_kms_setup_funcs(virgl_screen_t *virgl);
 
 #define MAX_RELOCS 96
-#include "virgl_drm.h"
+#include "virtgpu_drm.h"
 
 struct virgl_cmd_stream {
   struct virgl_bo *reloc_bo[MAX_RELOCS];
@@ -295,11 +295,11 @@ int graw_encode_resource_copy_region(struct graw_encoder_state *enc,
                                      unsigned dstx, unsigned dsty, unsigned dstz,
                                      uint32_t src_res_handle,
                                      unsigned src_level,
-                                     const struct drm_virgl_3d_box *src_box);
+                                     const struct drm_virtgpu_3d_box *src_box);
 int graw_encode_blit(struct graw_encoder_state *enc,
                      uint32_t dst_handle, uint32_t src_handle,
-		     struct drm_virgl_3d_box *dbox,
-		     struct drm_virgl_3d_box *sbox);
+		     struct drm_virtgpu_3d_box *dbox,
+		     struct drm_virtgpu_3d_box *sbox);
 
 #ifdef WITH_CHECK_POINT
 #define CHECK_POINT() ErrorF ("%s: %d  (%s)\n", __FILE__, __LINE__, __FUNCTION__);
