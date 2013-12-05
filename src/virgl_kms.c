@@ -3,11 +3,13 @@
 #endif
 
 #ifdef XF86DRM_MODE
+
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <errno.h>
 #include "virgl.h"
-
+#include "xf86platformBus.h"
 
 static void graw_flush_eq(struct graw_encoder_state *eq, void *closure);
 
@@ -18,6 +20,12 @@ static Bool virgl_open_drm_master(ScrnInfoPtr pScrn)
     char *busid;
     drmSetVersion sv;
     int err;
+
+    if (virgl->platdev) {
+      const char *path = xf86_get_platform_device_attrib(virgl->platdev, ODEV_ATTRIB_PATH);
+      virgl->drm_fd = open(path, O_RDWR, 0);
+      goto setver;
+    }
 
 #if XORG_VERSION_CURRENT >= XORG_VERSION_NUMERIC(1,9,99,901,0)
     XNFasprintf(&busid, "pci:%04x:%02x:%02x.%d",
@@ -38,6 +46,7 @@ static Bool virgl_open_drm_master(ScrnInfoPtr pScrn)
     }
     free(busid);
 
+setver:
     /* Check that what we opened was a master or a master-capable FD,
      * by setting the version of the interface we'll use to talk to it.
      * (see DRIOpenDRMMaster() in DRI1)
@@ -136,7 +145,8 @@ virgl_close_screen_kms (CLOSE_SCREEN_ARGS_DECL)
     virgl_screen_t *virgl = pScrn->driverPrivate;
     Bool result;
 
-    virgl_dri2_fini(pScreen);
+    if (virgl->has_3d_accel)
+	virgl_dri2_fini(pScreen);
 
     pScreen->CloseScreen = virgl->close_screen;
 
@@ -175,6 +185,24 @@ virgl_color_setup (ScrnInfoPtr pScrn)
     return TRUE;
 }
 
+static Bool virgl_has_3d_accel(virgl_screen_t *virgl)
+{
+    struct drm_virtgpu_getparam param;
+    uint32_t tmp;
+    int r;
+    memset(&param, 0, sizeof(param));
+    param.param = VIRTGPU_PARAM_3D_FEATURES;
+    param.value = (uintptr_t)&tmp;
+
+    r = drmCommandWriteRead(virgl->drm_fd, DRM_VIRTGPU_GETPARAM, &param,
+			    sizeof(param));
+    if (r)
+	return FALSE;
+
+    if (tmp == 1)
+	return TRUE;
+    return FALSE;
+}
 
 Bool virgl_pre_init_kms(ScrnInfoPtr pScrn, int flags)
 {
@@ -201,7 +229,10 @@ Bool virgl_pre_init_kms(ScrnInfoPtr pScrn, int flags)
     xorg_list_init(&virgl->ums_bos);
 
     virgl_kms_setup_funcs(virgl);
-    virgl->pci = xf86GetPciInfoForEntity (virgl->entity->index);
+    if (virgl->entity->location.type == BUS_PCI) {
+      virgl->pci = xf86GetPciInfoForEntity (virgl->entity->index);
+    } else
+      virgl->platdev = virgl->entity->location.id.plat;
 
     pScrn->monitor = pScrn->confScreen->monitor;
 
@@ -209,6 +240,8 @@ Bool virgl_pre_init_kms(ScrnInfoPtr pScrn, int flags)
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Kernel modesetting setup failed\n");
 	goto out;
     }
+
+    virgl->has_3d_accel = virgl_has_3d_accel(virgl);
 
     if (!virgl_color_setup(pScrn))
 	goto out;
@@ -414,7 +447,8 @@ Bool virgl_screen_init_kms(SCREEN_INIT_ARGS_DECL)
     /* no surface cache for kms surfaces for now */
     pScreen->SaveScreen = virgl_blank_screen;
 
-    virgl_dri2_init(pScreen);
+    if (virgl->has_3d_accel)
+	virgl_dri2_init(pScreen);
 
     virgl_uxa_init (virgl, pScreen);
 
@@ -620,7 +654,6 @@ virgl_kms_surface_create(virgl_screen_t *virgl,
 
     if ((bpp & 3) != 0)
     {
-	ErrorF ("%s: Bad bpp: %d (%d)\n", __FUNCTION__, bpp, bpp & 7);
 	return NULL;
     }
 
@@ -1010,7 +1043,7 @@ struct graw_encoder_state *graw_encoder_init_queue(int fd)
 
 #endif
 
-Bool virgl_switch_mode(SWITCH_MODE_ARGS_DECL)
+static Bool virgl_switch_mode(SWITCH_MODE_ARGS_DECL)
 {
     SCRN_INFO_PTR(arg);
     Bool ret;
@@ -1039,20 +1072,20 @@ enum virgl_class
 
 static const struct pci_id_match virgl_device_match[] = {
     {
-	PCI_VENDOR_RED_HAT, PCI_CHIP_VIRGL_3D, PCI_MATCH_ANY, PCI_MATCH_ANY,
+	PCI_VENDOR_VIRTIO, PCI_CHIP_VIRTIO_3D, PCI_MATCH_ANY, PCI_MATCH_ANY,
 	0x00000000, 0x00000000, CHIP_VIRGL_1
     },
     
     { 0 },
 };
 static SymTabRec virglChips[] = {
-    { PCI_CHIP_VIRGL_3D, "QXL 3D", },
+    { PCI_CHIP_VIRTIO_3D, "QXL 3D", },
     { -1, NULL }
 };
 
 #ifndef XSERVER_LIBPCIACCESS
 static PciChipsets virglPciChips[] = {
-    { PCI_CHIP_VIRGL_3D, PCI_CHIP_VIRGL_3D, RES_SHARED_VGA },
+    { PCI_CHIP_VIRTIO_3D, PCI_CHIP_VIRTIO_3D, RES_SHARED_VGA },
     { -1, -1, RES_UNDEFINED }
 };
 #endif
@@ -1147,6 +1180,28 @@ virgl_pci_probe (DriverPtr drv, int entity, struct pci_device *dev, intptr_t mat
     return TRUE;
 }
 
+static Bool virgl_platform_probe(DriverPtr driver,
+                          int entity_num, int flags, struct xf86_platform_device *device,
+                          intptr_t match_data)
+{
+    ScrnInfoPtr scrn = NULL;
+    const char *path = xf86_get_platform_device_attrib(device, ODEV_ATTRIB_PATH);
+    int scr_flags = 0;
+
+    if (flags & PLATFORM_PROBE_GPU_SCREEN)
+	return FALSE;
+
+    if (1) {
+        scrn = xf86AllocateScreen(driver, scr_flags);
+        xf86AddEntityToScreen(scrn, entity_num);
+
+    	virgl_init_scrn (scrn);
+        xf86DrvMsg(scrn->scrnIndex, X_INFO,
+                   "using drv %s\n", path ? path : "default device");
+    }
+
+    return scrn != NULL;
+}
 
 static DriverRec virgl_driver = {
     0,
@@ -1158,7 +1213,8 @@ static DriverRec virgl_driver = {
     0,
     NULL,
     virgl_device_match,
-    virgl_pci_probe
+    virgl_pci_probe,
+    virgl_platform_probe,
 };
 
 static pointer

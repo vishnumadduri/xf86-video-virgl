@@ -44,6 +44,7 @@
 #ifdef XSERVER_PCIACCESS
 #include "pciaccess.h"
 #endif
+#include "xf86platformBus.h"
 #include "fb.h"
 #include "vgaHW.h"
 
@@ -55,8 +56,10 @@
 #define VIRGL_NAME		"virgl"
 #define VIRGL_DRIVER_NAME		"virgl"
 #define PCI_VENDOR_RED_HAT	0x1b36
+#define PCI_VENDOR_VIRTIO	0x1af4
 
 #define PCI_CHIP_VIRGL_3D	0x3d
+#define PCI_CHIP_VIRTIO_3D	0x1010
  
 typedef struct _virgl_screen_t virgl_screen_t;
 
@@ -165,6 +168,7 @@ struct _virgl_screen_t
     pciVideoPtr			pci;
     PCITAG			pci_tag;
 #endif
+    struct xf86_platform_device *platdev;
     vgaRegRec                   vgaRegs;
 
     uxa_driver_t *		uxa;
@@ -196,6 +200,8 @@ struct _virgl_screen_t
     DamagePtr damage;
     ScreenBlockHandlerProcPtr BlockHandler;
     struct graw_encoder_state *gr_enc;
+
+    Bool has_3d_accel;
 };
 
 void		    virgl_surface_set_pixmap (virgl_surface_t *surface,
