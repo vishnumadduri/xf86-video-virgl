@@ -43,6 +43,7 @@
 #define DPMS_SERVER
 #include <X11/extensions/dpms.h>
 #endif
+#include <cursorstr.h>
 
 #include "virgl.h"
 static void
@@ -271,7 +272,11 @@ drmmode_show_cursor (xf86CrtcPtr crtc)
 	drmmode_ptr drmmode = drmmode_crtc->drmmode;
 	uint32_t handle = virgl_kms_bo_get_handle(drmmode_crtc->cursor_bo);
 
-	drmModeSetCursor(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, handle, 64, 64);
+	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(crtc->scrn);
+	CursorPtr cursor = xf86_config->cursor;
+
+	drmModeSetCursor2(drmmode->fd, drmmode_crtc->mode_crtc->crtc_id, handle,
+		64, 64, cursor->bits->xhot, cursor->bits->yhot);
 }
 
 static void
