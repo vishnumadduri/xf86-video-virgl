@@ -984,10 +984,8 @@ int graw_encode_blit(struct graw_encoder_state *enc,
 		     struct drm_virtgpu_3d_box *dbox,
 		     struct drm_virtgpu_3d_box *sbox)
 {
-   graw_encoder_write_cmd_dword(enc, GRAW_CMD0(GRAW_BLIT, 0, 23));
+   graw_encoder_write_cmd_dword(enc, GRAW_CMD0(GRAW_BLIT, 0, 21));
    graw_encoder_write_dword(enc, 0xf);
-   graw_encoder_write_dword(enc, 0);
-   graw_encoder_write_dword(enc, 0);
    graw_encoder_write_dword(enc, 0);
    graw_encoder_write_dword(enc, 0);
 
