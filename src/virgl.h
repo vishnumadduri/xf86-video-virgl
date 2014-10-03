@@ -207,49 +207,6 @@ struct _virgl_screen_t
 void		    virgl_surface_set_pixmap (virgl_surface_t *surface,
 					    PixmapPtr      pixmap);
 
-/* access */
-Bool		    virgl_surface_prepare_access (virgl_surface_t *surface,
-						PixmapPtr      pixmap,
-						RegionPtr      region,
-						uxa_access_t   access);
-void		    virgl_surface_finish_access (virgl_surface_t *surface,
-					       PixmapPtr      pixmap);
-
-/* solid */
-Bool		    virgl_surface_prepare_solid (virgl_surface_t *destination,
-					       Pixel	      fg);
-void		    virgl_surface_solid         (virgl_surface_t *destination,
-					       int	      x1,
-					       int	      y1,
-					       int	      x2,
-					       int	      y2);
-
-/* copy */
-Bool		    virgl_surface_prepare_copy (virgl_surface_t *source,
-					      virgl_surface_t *dest);
-void		    virgl_surface_copy	     (virgl_surface_t *dest,
-					      int  src_x1, int src_y1,
-					      int  dest_x1, int dest_y1,
-					      int width, int height);
-void		    virgl_surface_done_copy (virgl_surface_t *dest);
-Bool		    virgl_surface_put_image    (virgl_surface_t *dest,
-					      int x, int y, int width, int height,
-					      const char *src, int src_pitch);
-
-/* composite */
-Bool		    virgl_surface_prepare_composite (int op,
-						   PicturePtr	src_picture,
-						   PicturePtr	mask_picture,
-						   PicturePtr   dst_picture,
-						   virgl_surface_t *src,
-						   virgl_surface_t *mask,
-						   virgl_surface_t *dest);
-void		   virgl_surface_composite (virgl_surface_t *dest,
-					  int src_x, int src_y,
-					  int mask_x, int mask_y,
-					  int dst_x, int dst_y,
-					  int width, int height);
-
 /* UXA */
 #if HAS_DEVPRIVATEKEYREC
 extern DevPrivateKeyRec uxa_pixmap_index;

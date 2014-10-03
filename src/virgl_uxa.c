@@ -44,14 +44,110 @@ int uxa_pixmap_index;
 static Bool
 virgl_prepare_access (PixmapPtr pixmap, RegionPtr region, uxa_access_t access)
 {
-    return virgl_surface_prepare_access (get_surface (pixmap),
-                                       pixmap, region, access);
+    int n_boxes;
+    BoxPtr boxes;
+    ScreenPtr pScreen = pixmap->drawable.pScreen;
+    ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
+    RegionRec new;
+    virgl_surface_t *surface = get_surface(pixmap);
+
+    if (!pScrn->vtSema)
+        return FALSE;
+
+    if (!surface->bo) {
+	goto out;
+    }
+
+    REGION_INIT (NULL, &new, (BoxPtr)NULL, 0);
+    REGION_SUBTRACT (NULL, &new, region, &surface->access_region);
+
+    if (access == UXA_ACCESS_RW)
+	surface->access_type = UXA_ACCESS_RW;
+    
+    region = &new;
+    
+    n_boxes = REGION_NUM_RECTS (region);
+    boxes = REGION_RECTS (region);
+
+    if (n_boxes < 25)
+    {
+	while (n_boxes--)
+	{
+	    virgl_kms_transfer_get_block (surface, boxes->x1, boxes->y1, boxes->x2, boxes->y2);
+	    
+	    boxes++;
+	}
+    }
+    else
+    {
+	virgl_kms_transfer_get_block(
+	    surface,
+	    new.extents.x1, new.extents.y1, new.extents.x2, new.extents.y2);
+    }
+    
+    REGION_UNION (pScreen,
+		  &(surface->access_region),
+		  &(surface->access_region),
+		      region);
+    
+    REGION_UNINIT (NULL, &new);
+
+ out:    
+    pScreen->ModifyPixmapHeader(
+	pixmap,
+	pixmap->drawable.width,
+	pixmap->drawable.height,
+	-1, -1, -1,
+	pixman_image_get_data (surface->host_image));
+
+    pixmap->devKind = pixman_image_get_stride (surface->host_image);
+    
+    return TRUE;
 }
 
 static void
 virgl_finish_access (PixmapPtr pixmap)
 {
-    virgl_surface_finish_access (get_surface (pixmap), pixmap);
+    ScreenPtr pScreen = pixmap->drawable.pScreen;
+    int w = pixmap->drawable.width;
+    int h = pixmap->drawable.height;
+    int n_boxes;
+    BoxPtr boxes;
+    virgl_surface_t *surface = get_surface(pixmap);
+
+    if (!surface->bo) {
+	pScreen->ModifyPixmapHeader(pixmap, w, h, -1, -1, 0, NULL);
+	return;
+    }
+
+    n_boxes = REGION_NUM_RECTS (&surface->access_region);
+    boxes = REGION_RECTS (&surface->access_region);
+
+    if (surface->access_type == UXA_ACCESS_RW)
+    {
+	if (n_boxes < 25)
+	{
+	    while (n_boxes--)
+	    {
+		virgl_kms_transfer_block(surface, boxes->x1, boxes->y1, boxes->x2, boxes->y2);
+		
+		boxes++;
+	    }
+	}
+	else
+	{
+	    virgl_kms_transfer_block (surface,
+			surface->access_region.extents.x1,
+			surface->access_region.extents.y1,
+			surface->access_region.extents.x2,
+			surface->access_region.extents.y2);
+	}
+    }
+
+    REGION_EMPTY (pScreen, &surface->access_region);
+    surface->access_type = UXA_ACCESS_RO;
+    
+    pScreen->ModifyPixmapHeader(pixmap, w, h, -1, -1, 0, NULL);
 }
 
 static Bool
@@ -92,13 +188,13 @@ virgl_prepare_solid (PixmapPtr pixmap, int alu, Pixel planemask, Pixel fg)
     if (!(surface = get_surface (pixmap)))
 	return FALSE;
 
-    return virgl_surface_prepare_solid (surface, fg);
+    return FALSE;
 }
 
 static void
 virgl_solid (PixmapPtr pixmap, int x1, int y1, int x2, int y2)
 {
-    virgl_surface_solid (get_surface (pixmap), x1, y1, x2, y2);
+
 }
 
 static void
@@ -130,7 +226,15 @@ virgl_prepare_copy (PixmapPtr source, PixmapPtr dest,
                   int xdir, int ydir, int alu,
                   Pixel planemask)
 {
-    return virgl_surface_prepare_copy (get_surface (dest), get_surface (source));
+    virgl_surface_t *ds = get_surface(dest);
+    virgl_surface_t *ss = get_surface(source);
+
+    if (ds->bo && ss->bo && ds != ss) {
+	ds->u.copy_src = ss;
+	return TRUE;
+    }
+
+    return FALSE;
 }
 
 static void
@@ -139,16 +243,34 @@ virgl_copy (PixmapPtr dest,
           int dest_x1, int dest_y1,
           int width, int height)
 {
-    virgl_surface_copy (get_surface (dest),
-                      src_x1, src_y1,
-                      dest_x1, dest_y1,
-                      width, height);
+    virgl_surface_t *ds = get_surface(dest);
+    virgl_screen_t *virgl = ds->virgl;
+    struct drm_virtgpu_3d_box sbox, dbox;
+
+    sbox.x = src_x1;
+    sbox.y = src_y1;
+    sbox.z = 0;
+    sbox.w = width;
+    sbox.h = height;
+    sbox.d = 1;
+
+    dbox.x = dest_x1;
+    dbox.y = dest_y1;
+    dbox.z = 0;
+    dbox.w = width;
+    dbox.h = height;
+    dbox.d = 1;
+    graw_encode_blit(virgl->gr_enc,
+		     virgl_kms_bo_get_res_handle(ds->bo),
+		     virgl_kms_bo_get_res_handle(ds->u.copy_src->bo),
+		     &dbox,
+		     &sbox);
 }
 
 static void
 virgl_done_copy (PixmapPtr dest)
 {
-    virgl_surface_done_copy(get_surface(dest));
+    virgl_flush(get_surface(dest)->virgl);
 }
 
 /*
@@ -267,11 +389,7 @@ virgl_prepare_composite (int op,
 		       PixmapPtr pMask,
 		       PixmapPtr pDst)
 {
-    return virgl_surface_prepare_composite (
-	op, pSrcPicture, pMaskPicture, pDstPicture,
-	get_surface (pSrc),
-	pMask? get_surface (pMask) : NULL,
-	get_surface (pDst));
+    return FALSE;
 }
 
 static void
@@ -281,17 +399,11 @@ virgl_composite (PixmapPtr pDst,
 	       int dst_x, int dst_y,
 	       int width, int height)
 {
-    virgl_surface_composite (
-	get_surface (pDst),
-	src_x, src_y,
-	mask_x, mask_y,
-	dst_x, dst_y, width, height);
 }
 
 static void
 virgl_done_composite (PixmapPtr pDst)
 {
-    ;
 }
 
 static Bool
@@ -299,9 +411,6 @@ virgl_put_image (PixmapPtr pDst, int x, int y, int w, int h,
                char *src, int src_pitch)
 {
     virgl_surface_t *surface = get_surface (pDst);
-
-    if (surface)
-	return virgl_surface_put_image (surface, x, y, w, h, src, src_pitch);
 
     return FALSE;
 }
