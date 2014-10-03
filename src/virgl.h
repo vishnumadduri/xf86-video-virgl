@@ -80,18 +80,6 @@ struct virgl_surface_t
     union
     {
 	struct virgl_surface_t *copy_src;
-	Pixel	       solid_pixel;
-
-	struct
-	{
-	    int			op;
-	    PicturePtr		src_picture;
-	    PicturePtr		mask_picture;
-	    PicturePtr		dest_picture;
-	    struct virgl_surface_t	*src;
-	    struct virgl_surface_t	*mask;
-	    struct virgl_surface_t	*dest;
-	} composite;
     } u;
 
 };
