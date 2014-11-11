@@ -1049,6 +1049,10 @@ static Bool virgl_switch_mode(SWITCH_MODE_ARGS_DECL)
     return ret;
 }
 
+static void virgl_adjust_frame(ADJUST_FRAME_ARGS_DECL)
+{
+}
+
 static XF86ModuleVersionInfo virgl_module_info =
 {
     VIRGL_DRIVER_NAME,
@@ -1114,6 +1118,7 @@ virgl_init_scrn (ScrnInfoPtr pScrn)
 
     pScrn->SwitchMode       = virgl_switch_mode;
     pScrn->ValidMode        = NULL;
+    pScrn->AdjustFrame      = virgl_adjust_frame;
 }
 
 static char *
