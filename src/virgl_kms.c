@@ -83,7 +83,7 @@ static int dispatch_dirty_region(ScrnInfoPtr scrn,
         drmModeClip *clip = malloc(num_cliprects * sizeof(drmModeClip));
         BoxPtr rect = REGION_RECTS(dirty);
         int i, ret;
-            
+
         if (!clip)
             return -ENOMEM;
 
@@ -161,10 +161,10 @@ virgl_color_setup (ScrnInfoPtr pScrn)
     int   scrnIndex = pScrn->scrnIndex;
     Gamma gzeros = { 0.0, 0.0, 0.0 };
     rgb   rzeros = { 0, 0, 0 };
-    
+
     if (!xf86SetDepthBpp (pScrn, 0, 0, 0, Support32bppFb))
 	return FALSE;
-    
+
     if (pScrn->depth != 15 && pScrn->depth != 24)
     {
 	xf86DrvMsg (scrnIndex, X_ERROR, "Depth %d is not supported\n",
@@ -172,16 +172,16 @@ virgl_color_setup (ScrnInfoPtr pScrn)
 	return FALSE;
     }
     xf86PrintDepthBpp (pScrn);
-    
+
     if (!xf86SetWeight (pScrn, rzeros, rzeros))
 	return FALSE;
-    
+
     if (!xf86SetDefaultVisual (pScrn, -1))
 	return FALSE;
-    
+
     if (!xf86SetGamma (pScrn, gzeros))
 	return FALSE;
-    
+
     return TRUE;
 }
 
@@ -218,7 +218,7 @@ Bool virgl_pre_init_kms(ScrnInfoPtr pScrn, int flags)
 	xf86DrvMsg (scrnIndex, X_ERROR, "No Zaphod mode for you\n");
 	return FALSE;
     }
-    
+
     if (!pScrn->driverPrivate)
 	pScrn->driverPrivate = xnfcalloc (sizeof (virgl_screen_t), 1);
 
@@ -259,7 +259,7 @@ Bool virgl_pre_init_kms(ScrnInfoPtr pScrn, int flags)
 
     virgl->virtual_x = 1024;
     virgl->virtual_y = 768;
-    
+
     pScrn->display->virtualX = virgl->virtual_x;
     pScrn->display->virtualY = virgl->virtual_y;
 
@@ -285,21 +285,21 @@ virgl_create_screen_resources_kms(ScreenPtr pScreen)
     PixmapPtr      pPixmap;
     virgl_surface_t *surf;
     int            i;
-    
+
     pScreen->CreateScreenResources = virgl->create_screen_resources;
     ret = pScreen->CreateScreenResources (pScreen);
     pScreen->CreateScreenResources = virgl_create_screen_resources_kms;
-    
+
     if (!ret)
 	return FALSE;
-    
+
     pPixmap = pScreen->GetScreenPixmap (pScreen);
-    
+
     virgl_set_screen_pixmap_header (pScreen);
-    
+
     if ((surf = get_surface (pPixmap)))
         virgl->bo_funcs->destroy_surface(surf);
-    
+
     set_surface (pPixmap, virgl->primary);
     virgl_surface_set_pixmap (virgl->primary, pPixmap);
 
@@ -312,7 +312,7 @@ virgl_create_screen_resources_kms(ScreenPtr pScreen)
 
     if (!uxa_resources_init (pScreen))
 	return FALSE;
-    
+
     return TRUE;
 }
 
@@ -346,7 +346,7 @@ virgl_enter_vt_kms (VT_FUNC_ARGS_DECL)
 void
 virgl_leave_vt_kms (VT_FUNC_ARGS_DECL)
 {
-    SCRN_INFO_PTR (arg); 
+    SCRN_INFO_PTR (arg);
     int ret;
     virgl_screen_t *virgl = pScrn->driverPrivate;
     xf86_hide_cursors (pScrn);
@@ -366,9 +366,9 @@ virgl_set_screen_pixmap_header (ScreenPtr pScreen)
     ScrnInfoPtr pScrn = xf86ScreenToScrn (pScreen);
     virgl_screen_t *virgl = pScrn->driverPrivate;
     PixmapPtr pPixmap = pScreen->GetScreenPixmap (pScreen);
-    
+
     // TODO: don't ModifyPixmapHeader too early?
-    
+
     if (pPixmap)
     {
 	pScreen->ModifyPixmapHeader (pPixmap,
@@ -396,13 +396,13 @@ Bool
 virgl_fb_init (virgl_screen_t *virgl, ScreenPtr pScreen)
 {
     ScrnInfoPtr pScrn = virgl->pScrn;
-   
+
     if (!fbScreenInit (pScreen, virgl_surface_get_host_bits(virgl->primary),
                        pScrn->virtualX, pScrn->virtualY,
                        pScrn->xDpi, pScrn->yDpi, pScrn->virtualX,
                        pScrn->bitsPerPixel))
 	return FALSE;
-    
+
     fbPictureInit (pScreen, NULL, 0);
     return TRUE;
 }
@@ -426,7 +426,7 @@ Bool virgl_screen_init_kms(SCREEN_INIT_ARGS_DECL)
     pScrn->virtualY = pScrn->currentMode->VDisplay;
     if (!virgl_fb_init (virgl, pScreen))
 	goto out;
-    
+
     visual = pScreen->visuals + pScreen->numVisuals;
     while (--visual >= pScreen->visuals)
     {
@@ -440,7 +440,7 @@ Bool virgl_screen_init_kms(SCREEN_INIT_ARGS_DECL)
 	    visual->blueMask = pScrn->mask.blue;
 	}
     }
-    
+
     virgl->uxa = uxa_driver_alloc ();
 
 // GETPARAM
@@ -568,7 +568,7 @@ static void *virgl_bo_map(struct virgl_bo *_bo)
     memset(&virgl_map, 0, sizeof(virgl_map));
 
     virgl_map.handle = bo->handle;
-    
+
     if (drmIoctl(virgl->drm_fd, DRM_IOCTL_VIRTGPU_MAP, &virgl_map)) {
 	xf86DrvMsg(virgl->pScrn->scrnIndex, X_ERROR,
                    "error doing VIRGL_MAP: %s\n", strerror(errno));
@@ -602,7 +602,7 @@ static void virgl_bo_decref(virgl_screen_t *virgl, struct virgl_bo *_bo)
 	return;
 
     munmap(bo->mapping, bo->size);
-	
+
     /* just close the handle */
     args.handle = bo->handle;
     ret = drmIoctl(virgl->drm_fd, DRM_IOCTL_GEM_CLOSE, &args);
@@ -624,7 +624,7 @@ struct virgl_bo *virgl_bo_create_primary_resource(virgl_screen_t *virgl, uint32_
 }
 
 struct virgl_bo *virgl_bo_create_argb_cursor_resource(virgl_screen_t *virgl,
-						      uint32_t width, uint32_t height) 
+						      uint32_t width, uint32_t height)
 {
     struct virgl_bo *bo;
     int ret;
@@ -721,14 +721,14 @@ void virgl_kms_setup_funcs(virgl_screen_t *virgl)
 uint32_t virgl_kms_bo_get_handle(struct virgl_bo *_bo)
 {
     struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
-    
+
     return bo->handle;
 }
 
 uint32_t virgl_kms_bo_get_res_handle(struct virgl_bo *_bo)
 {
     struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
-    
+
     return bo->res_handle;
 }
 
@@ -765,7 +765,7 @@ int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
     width = surf->pixmap->drawable.width;
     height = surf->pixmap->drawable.height;
     virgl_get_formats(surf->pixmap->drawable.bitsPerPixel, &pformat, &format);
-    
+
     surf->bo = virgl_bo_alloc(surf->virgl, 2, format, (1 << 1), width, height, 0);
 
     ptr = virgl_bo_map(surf->bo);
@@ -782,7 +782,7 @@ int virgl_kms_3d_resource_migrate(struct virgl_surface_t *surf)
 			    new_image,
 			    0, 0, 0, 0, 0, 0, width, height);
 
-    
+
     pixman_image_unref(surf->host_image);
     surf->host_image = new_image;
     return 0;
@@ -816,7 +816,7 @@ static int virgl_3d_transfer_from_host(int fd, struct virgl_bo *_bo,
   struct drm_virtgpu_3d_transfer_from_host getcmd;
   struct virgl_kms_bo *bo = (struct virgl_kms_bo *)_bo;
   int ret;
-  
+
   getcmd.bo_handle = bo->handle;
   getcmd.level = level;
   getcmd.box = *box;
@@ -868,7 +868,7 @@ void virgl_kms_transfer_block(struct virgl_surface_t *surf,
 
 
 void virgl_kms_transfer_get_block(struct virgl_surface_t *surf,
-			     int x1, int y1, int x2, int y2)    
+			     int x1, int y1, int x2, int y2)
 {
 
    int ret;
@@ -990,7 +990,7 @@ int graw_encode_blit(struct graw_encoder_state *enc,
    graw_encoder_write_dword(enc, 0);
 
    graw_encoder_write_dword(enc, dst_handle);
-   graw_encoder_write_dword(enc, 0); // level 
+   graw_encoder_write_dword(enc, 0); // level
    graw_encoder_write_dword(enc, 0); //format
    graw_encoder_write_dword(enc, dbox->x);
    graw_encoder_write_dword(enc, dbox->y);
@@ -1077,7 +1077,7 @@ static const struct pci_id_match virgl_device_match[] = {
 	PCI_VENDOR_VIRTIO, PCI_CHIP_VIRTIO_3D, PCI_MATCH_ANY, PCI_MATCH_ANY,
 	0x00000000, 0x00000000, CHIP_VIRGL_1
     },
-    
+
     { 0 },
 };
 static SymTabRec virglChips[] = {
@@ -1159,27 +1159,32 @@ virgl_pci_probe (DriverPtr drv, int entity, struct pci_device *dev, intptr_t mat
     ScrnInfoPtr   pScrn = xf86ConfigPciEntity (NULL, 0, entity, NULL, NULL,
                                                NULL, NULL, NULL, NULL);
     Bool kms = FALSE;
-    
+
+    xf86DrvMsg(0, X_INFO, "pci probe 1");
+
     if (!pScrn)
 	return FALSE;
 
     if (!dev)
       return FALSE;
 
-    
+    xf86DrvMsg(0, X_INFO, "pci probe 2");
+
     if (virgl_kernel_mode_enabled(pScrn, dev))
       kms = TRUE;
 
     if (!kms)
       return FALSE;
 
+    xf86DrvMsg(0, X_INFO, "pci probe 3");
+
     if (!pScrn->driverPrivate)
 	pScrn->driverPrivate = xnfcalloc (sizeof (virgl_screen_t), 1);
     virgl = pScrn->driverPrivate;
     virgl->pci = dev;
-    
+
     virgl_init_scrn (pScrn);
-    
+
     return TRUE;
 }
 
@@ -1191,15 +1196,17 @@ static Bool virgl_platform_probe(DriverPtr driver,
     const char *path = xf86_get_platform_device_attrib(device, ODEV_ATTRIB_PATH);
     int scr_flags = 0;
 
+    xf86DrvMsg(0, X_INFO, "probe 1");
     if (flags & PLATFORM_PROBE_GPU_SCREEN)
 	return FALSE;
 
+    xf86DrvMsg(0, X_INFO, "probe 2");
     if (1) {
         scrn = xf86AllocateScreen(driver, scr_flags);
         xf86AddEntityToScreen(scrn, entity_num);
 
     	virgl_init_scrn (scrn);
-        xf86DrvMsg(scrn->scrnIndex, X_INFO,
+        xf86DrvMsg(0, X_INFO,
                    "using drv %s\n", path ? path : "default device");
     }
 
@@ -1224,7 +1231,7 @@ static pointer
 virgl_setup (pointer module, pointer opts, int *errmaj, int *errmin)
 {
     static Bool loaded = FALSE;
-    
+
     if (!loaded)
     {
 	loaded = TRUE;
@@ -1235,7 +1242,7 @@ virgl_setup (pointer module, pointer opts, int *errmaj, int *errmin)
     {
 	if (errmaj)
 	    *errmaj = LDR_ONCEONLY;
-	
+
 	return NULL;
     }
 }
