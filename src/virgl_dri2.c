@@ -209,7 +209,7 @@ virgl_dri2_init(ScreenPtr pScreen)
     ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
     virgl_screen_t *virgl = pScrn->driverPrivate;
     DRI2InfoRec dri2 = { 0 };
-    const char *drivername[1] = { "virgl" };
+    const char *drivername[1] = { "virtio_gpu" };
 
     dri2.driverNames = drivername;
     dri2.numDrivers = 1;
