@@ -113,7 +113,7 @@ struct virgl_bo_funcs {
 void virgl_kms_setup_funcs(virgl_screen_t *virgl);
 
 #define MAX_RELOCS 96
-#include "virtgpu_drm.h"
+#include "drm/virtgpu_drm.h"
 
 struct virgl_cmd_stream {
   struct virgl_bo *reloc_bo[MAX_RELOCS];
