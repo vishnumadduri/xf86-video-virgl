@@ -53,8 +53,8 @@
 #include "compat-api.h"
 #define hidden _X_HIDDEN
 
-#define VIRGL_NAME		"virgl"
-#define VIRGL_DRIVER_NAME		"virgl"
+#define VIRGL_NAME		"virtiogpu"
+#define VIRGL_DRIVER_NAME		"virtiogpu"
 #define PCI_VENDOR_RED_HAT	0x1b36
 #define PCI_VENDOR_VIRTIO	0x1af4
 
